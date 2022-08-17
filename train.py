@@ -1,31 +1,21 @@
 import torch
-import numpy as np
 from tqdm import tqdm
+from glob import glob
+from data import NpzDataset
 from model import UNet
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print('Device:', device)
 
-data = np.load('features.npz')
-# B = data['B'].transpose((2, 0, 1))
+files = glob('data/*.npz')
 features = ['Bx', 'By', 'Bz', 'rho', 'anisoP', 'agyrotropy', 'absE']
-X = np.stack([data[feature] for feature in features], axis=0)
-labeled_domain = data['labeled_domain']
+height_out = 216
+width_out = 535
+batch_size = 1
+epochs = 20
 
-height_out = labeled_domain.shape[0]
-width_out = labeled_domain.shape[1]
-
-print('X original shape:', X.shape)
-print('y original shape:', labeled_domain.shape)
-
-tensor_X = torch.tensor(X[np.newaxis, ...], dtype=torch.float32)
-tensor_y = torch.tensor(labeled_domain[np.newaxis, ...], dtype=torch.float32)
-
-print('X tensor shape:', tensor_X.size())
-print('y tensor shape:', tensor_y.size())
-
-train_dataset = torch.utils.data.TensorDataset(tensor_X, tensor_y)
-train_loader = torch.utils.data.DataLoader(train_dataset)
+train_dataset = NpzDataset(files, features)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
 
 unet = UNet(
     enc_chs=(len(features), 64, 128),
@@ -36,17 +26,14 @@ unet = UNet(
 ).to(device)
 
 criterion = torch.nn.BCELoss()
-optimizer = torch.optim.Adam(unet.parameters(), lr=0.001)
-
-batch_size = 1
-epochs = 20
+optimizer = torch.optim.Adam(unet.parameters(), lr=0.0001)
 
 for epoch in range(epochs):
 
     running_loss = 0.0
     for data in tqdm(train_loader):
         # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data[0].to(device), data[1].to(device)
+        inputs, labels = data['X'].to(device), data['y'].to(device)
 
         # zero the parameter gradients
         optimizer.zero_grad()
@@ -61,7 +48,7 @@ for epoch in range(epochs):
         loss.backward()
         optimizer.step()
 
-        # print statistics
-        print(f'{(epoch + 1):3d} loss: {loss.item()}')
+    # print statistics
+    print(f'{(epoch + 1):3d} loss: {loss.item()}')
 
 print('Finished training!')
