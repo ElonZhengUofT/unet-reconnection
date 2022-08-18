@@ -3,6 +3,9 @@ from tqdm import tqdm
 from glob import glob
 from data import NpzDataset
 from model import UNet
+import numpy as np
+import argparse
+import os
 
 
 def train(model, train_loader, device, criterion, optimizer, length):
@@ -30,22 +33,28 @@ def train(model, train_loader, device, criterion, optimizer, length):
     return model
 
 
-def evaluate(model, test_loader, device, criterion, length):
+def evaluate(model, test_loader, device, criterion, length, outdir):
     model.eval()
     preds = torch.tensor([], dtype=torch.float32).to(device)
     truth = torch.tensor([], dtype=torch.float32).to(device)
 
     with torch.no_grad():
-        for data in tqdm(test_loader):
+        for i, data in tqdm(enumerate(test_loader)):
             inputs, labels = data['X'].to(device), data['y'].to(device)
 
             outputs = unet(inputs)
 
-            outputs = outputs.reshape(length)
-            labels = labels.reshape(length)
+            results = {
+                'outputs': outputs.detach().cpu().numpy().squeeze(),
+                'labels': labels.detach().cpu().numpy().squeeze()
+            }
+            np.savez(f'{outdir}/{i}.npz', **results)
 
-            preds = torch.cat((preds, outputs))
-            truth = torch.cat((truth, labels))
+            flat_outputs = outputs.reshape(length)
+            flat_labels = labels.reshape(length)
+
+            preds = torch.cat((preds, flat_outputs))
+            truth = torch.cat((truth, flat_labels))
     
     loss = criterion(preds, truth)
 
@@ -53,6 +62,16 @@ def evaluate(model, test_loader, device, criterion, length):
 
 
 if __name__ == '__main__':
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('-e', '--epochs', required=True, type=int)
+    arg_parser.add_argument('-o', '--outdir', required=True, type=str)
+    args = arg_parser.parse_args()
+
+    try:
+        os.makedirs(args.outdir)
+    except FileExistsError:
+        pass
+
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
 
@@ -62,7 +81,7 @@ if __name__ == '__main__':
     width_out = 535
     num_classes = 1
     batch_size = 1
-    epochs = 3
+    epochs = args.epochs
 
     length = batch_size * num_classes * width_out * height_out
 
@@ -79,6 +98,7 @@ if __name__ == '__main__':
         retain_dim=True,
         out_sz=(height_out, width_out)
     ).to(device)
+    print(unet)
 
     criterion = torch.nn.BCELoss()
     optimizer = torch.optim.Adam(unet.parameters(), lr=0.0001)
@@ -87,4 +107,4 @@ if __name__ == '__main__':
     print('Finished training!\n')
 
     print('Evaluating...')
-    evaluate(unet, test_loader, device, criterion, length)
+    evaluate(unet, test_loader, device, criterion, length, args.outdir)
