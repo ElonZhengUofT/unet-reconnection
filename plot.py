@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from glob import glob
 import argparse
+import gif
+import os
 
 
 def plot_reconnection_points(file):
@@ -44,14 +46,16 @@ def plot_reconnection_points(file):
     plt.savefig('reconnection_points.png')
 
 
-def plot_comparison(preds, truth, file):
+@gif.frame
+def plot_comparison(preds, truth, file, epoch):
     fig = plt.figure(figsize=(12, 8))
+
     ax1 = fig.add_subplot(2, 1, 1)
     ax2 = fig.add_subplot(2, 1, 2)
 
     c1 = ax1.imshow(preds)
     fig.colorbar(c1, ax=ax1)
-    ax1.set_title('Preds')
+    ax1.set_title(f'Preds, epoch {epoch}')
 
     c2 = ax2.imshow(truth)
     fig.colorbar(c2, ax=ax2)
@@ -59,15 +63,42 @@ def plot_comparison(preds, truth, file):
 
     plt.savefig(file)
 
+def plot_loss(losses, outdir):
+    x = range(21, len(losses['train_losses']) + 1)
+    plt.plot(x, losses['train_losses'][20:], label='Training loss')
+    plt.plot(x, losses['test_losses'][20:], label='Test loss')
+
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.savefig(os.path.join(outdir, 'loss_zoom.png'))
+    plt.close()
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-d', '--dir', required=True)
+    arg_parser.add_argument('-e', '--epochs', required=True)
     args = arg_parser.parse_args()
 
     files = glob(f'{args.dir}/*.npz')
 
-    for i, file in enumerate(files):
-        data = np.load(file)
+    # plot_reconnection_points('data-large/3612.npz')
+
+    losses = np.load(f'{args.dir}/losses.npz')
+    plot_loss(losses, args.dir)
+
+
+    first_file = np.load('data-large/3600.npz')
+    earth = first_file['rho'] == 0
+
+    frames = []
+    for i in range(250):
+        data = np.load(f'{args.dir}/{i}/0.npz')
         preds, truth = data['outputs'], data['labels']
-        plot_comparison(preds, truth, f'{args.dir}/{i}.png')
+
+        # preds[earth] = 0
+
+        frame = plot_comparison(preds, truth, f'{args.dir}/{i}/0.png', i)
+        frames.append(frame)
+
+    gif.save(frames, f'{args.dir}/epochs.gif', duration=100)
