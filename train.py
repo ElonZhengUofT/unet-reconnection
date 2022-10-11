@@ -5,13 +5,12 @@ from data import NpzDataset
 from model import UNet
 import numpy as np
 import argparse
-import random
 import os
 
 
 def train(
-        model, train_loader, device, criterion, optimizer, length,
-        test_loader, not_earth, outdir
+        model, train_loader, device, criterion, optimizer, scheduler, length,
+        test_loader, outdir
     ):
 
     train_losses = []
@@ -20,7 +19,7 @@ def train(
     for epoch in range(epochs):
         for data in tqdm(train_loader):
             # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data['X'].to(device), data['y'].to(device)
+            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth']
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -30,6 +29,7 @@ def train(
 
             outputs = outputs.reshape(length)
             labels = labels.reshape(length)
+            not_earth = not_earth.reshape(length)
 
             # loss = criterion(outputs, labels)
             loss = criterion(outputs[not_earth], labels[not_earth])
@@ -46,8 +46,10 @@ def train(
             os.makedirs(eval_dir)
         except FileExistsError:
             pass
-        test_loss = evaluate(model, test_loader, device, criterion, length, not_earth, eval_dir)
+        test_loss = evaluate(model, test_loader, device, criterion, length, eval_dir)
         test_losses.append(test_loss)
+
+        scheduler.step(test_loss)
 
     losses = {
         'train_losses': train_losses,
@@ -59,14 +61,14 @@ def train(
     return model
 
 
-def evaluate(model, test_loader, device, criterion, length, not_earth, outdir):
+def evaluate(model, test_loader, device, criterion, length, outdir):
     model.eval()
     preds = torch.tensor([], dtype=torch.float32).to(device)
     truth = torch.tensor([], dtype=torch.float32).to(device)
 
     with torch.no_grad():
         for i, data in tqdm(enumerate(test_loader)):
-            inputs, labels = data['X'].to(device), data['y'].to(device)
+            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth']
 
             outputs = unet(inputs)
 
@@ -78,6 +80,7 @@ def evaluate(model, test_loader, device, criterion, length, not_earth, outdir):
 
             # flat_outputs = outputs.reshape(length)
             # flat_labels = labels.reshape(length)
+            not_earth = not_earth.reshape(length)
             flat_outputs = outputs.reshape(length)[not_earth]
             flat_labels = labels.reshape(length)[not_earth]
 
@@ -122,18 +125,12 @@ if __name__ == '__main__':
 
     length = batch_size * num_classes * width_out * height_out
 
-    first_file = np.load(files[0])
-    not_earth = first_file['rho'] != 0
-    not_earth = not_earth.reshape(length)
-
-    random.shuffle(files)
-
     print(files)
-    train_dataset = NpzDataset(files[:12], features)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size)
+    train_dataset = NpzDataset(files[:200], features)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, drop_last=True, shuffle=True)
 
-    test_dataset = NpzDataset(files[12:15], features)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size)
+    test_dataset = NpzDataset(files[200:250], features)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, drop_last=True)
 
     unet = UNet(
         enc_chs=(len(features), 64, 128, 256),
@@ -145,10 +142,11 @@ if __name__ == '__main__':
     print(unet)
 
     criterion = torch.nn.BCELoss()
-    optimizer = torch.optim.Adam(unet.parameters(), lr=0.00001)
+    optimizer = torch.optim.Adam(unet.parameters(), lr=1.e-3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min')
 
-    unet = train(unet, train_loader, device, criterion, optimizer, length, test_loader, not_earth, args.outdir)
+    unet = train(unet, train_loader, device, criterion, optimizer, scheduler, length, test_loader, args.outdir)
     print('Finished training!\n')
 
     print('Evaluating...')
-    evaluate(unet, test_loader, device, criterion, length, not_earth, args.outdir)
+    evaluate(unet, test_loader, device, criterion, length, args.outdir)

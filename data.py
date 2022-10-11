@@ -12,9 +12,11 @@ class NpzDataset(Dataset):
         data = np.load(self.files[index])
         X = np.stack([data[feature] for feature in self.features], axis=0)
         y = data['labeled_domain']
+        not_earth = data['rho'] != 0
         return {
             'X': torch.tensor(X, dtype=torch.float32), 
-            'y': torch.tensor(y, dtype=torch.float32)
+            'y': torch.tensor(y, dtype=torch.float32),
+            'not_earth': torch.tensor(not_earth, dtype=torch.bool)
         }
     
     def __len__(self):

@@ -76,8 +76,8 @@ def plot_loss(losses, outdir):
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument('-d', '--dir', required=True)
-    arg_parser.add_argument('-e', '--epochs', required=True)
+    arg_parser.add_argument('-d', '--dir', required=True, type=str)
+    arg_parser.add_argument('-e', '--epochs', required=True, type=int)
     args = arg_parser.parse_args()
 
     files = glob(f'{args.dir}/*.npz')
@@ -88,11 +88,11 @@ if __name__ == '__main__':
     plot_loss(losses, args.dir)
 
 
-    first_file = np.load('data-large/3600.npz')
-    earth = first_file['rho'] == 0
+    # first_file = np.load('data-large/3600.npz')
+    # earth = first_file['rho'] == 0
 
     frames = []
-    for i in range(250):
+    for i in range(args.epochs):
         data = np.load(f'{args.dir}/{i}/0.npz')
         preds, truth = data['outputs'], data['labels']
 
