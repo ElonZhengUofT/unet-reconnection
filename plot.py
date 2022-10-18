@@ -63,6 +63,7 @@ def plot_comparison(preds, truth, file, epoch):
 
     plt.savefig(file)
 
+
 def plot_loss(losses, outdir):
     x = range(21, len(losses['train_losses']) + 1)
     plt.plot(x, losses['train_losses'][20:], label='Training loss')
@@ -73,6 +74,7 @@ def plot_loss(losses, outdir):
     plt.legend()
     plt.savefig(os.path.join(outdir, 'loss_zoom.png'))
     plt.close()
+
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()

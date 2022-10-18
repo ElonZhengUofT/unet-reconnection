@@ -51,7 +51,9 @@ class Decoder(nn.Module):
 class UNet(nn.Module):
     def __init__(self, enc_chs=(3,64,128), dec_chs=(128, 64), num_class=1, retain_dim=False, out_sz=(572,572)):
         """
-        UNet implementation following https://amaarora.github.io/2020/09/13/unet.html
+        U-Net: Convolutional Networks for Biomedical Image Segmentation
+        https://arxiv.org/abs/1505.04597
+        https://amaarora.github.io/2020/09/13/unet.html
         """
         super().__init__()
         self.encoder     = Encoder(enc_chs)
