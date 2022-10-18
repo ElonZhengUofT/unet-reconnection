@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from glob import glob
+from utils import iou_score
 import argparse
 import gif
 import os
@@ -76,6 +77,14 @@ def plot_loss(losses, outdir):
     plt.close()
 
 
+def plot_iou_score(epochs, iou_scores, outdir):
+    plt.plot(range(epochs), iou_scores)
+    plt.xlabel('Epoch')
+    plt.ylabel('IoU Score')
+    plt.savefig(os.path.join(outdir, 'iou_score.png'))
+    plt.close()
+
+
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-d', '--dir', required=True, type=str)
@@ -89,18 +98,14 @@ if __name__ == '__main__':
     losses = np.load(f'{args.dir}/losses.npz')
     plot_loss(losses, args.dir)
 
-
-    # first_file = np.load('data-large/3600.npz')
-    # earth = first_file['rho'] == 0
-
     frames = []
+    iou_scores = []
     for i in range(args.epochs):
         data = np.load(f'{args.dir}/{i}/0.npz')
         preds, truth = data['outputs'], data['labels']
-
-        # preds[earth] = 0
-
+        iou_scores.append(iou_score(truth, preds))
         frame = plot_comparison(preds, truth, f'{args.dir}/{i}/0.png', i)
         frames.append(frame)
 
     gif.save(frames, f'{args.dir}/epochs.gif', duration=100)
+    plot_iou_score(args.epochs, iou_scores, args.dir)

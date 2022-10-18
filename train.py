@@ -3,6 +3,7 @@ from tqdm import tqdm
 from glob import glob
 from data import NpzDataset
 from model import UNet
+from utils import iou_score
 import numpy as np
 import argparse
 import os
@@ -19,7 +20,7 @@ def train(
     for epoch in range(epochs):
         for data in tqdm(train_loader):
             # get the inputs; data is a list of [inputs, labels]
-            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth']
+            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth'].to(device)
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -68,7 +69,7 @@ def evaluate(model, test_loader, device, criterion, length, outdir):
 
     with torch.no_grad():
         for i, data in tqdm(enumerate(test_loader)):
-            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth']
+            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth'].to(device)
 
             outputs = unet(inputs)
 
@@ -78,8 +79,6 @@ def evaluate(model, test_loader, device, criterion, length, outdir):
             }
             np.savez(f'{outdir}/{i}.npz', **results)
 
-            # flat_outputs = outputs.reshape(length)
-            # flat_labels = labels.reshape(length)
             not_earth = not_earth.reshape(length)
             flat_outputs = outputs.reshape(length)[not_earth]
             flat_labels = labels.reshape(length)[not_earth]
@@ -89,7 +88,9 @@ def evaluate(model, test_loader, device, criterion, length, outdir):
     
     loss = criterion(preds, truth)
 
-    print(f'Test loss: {loss.item()}')
+    print('Test loss:', loss.item())
+    
+    print('IoU score:', iou_score(truth, preds))
 
     return loss.item()
 
@@ -107,7 +108,7 @@ if __name__ == '__main__':
     except FileExistsError:
         pass
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
 
     files = glob(f'{args.indir}/*.npz')
@@ -127,10 +128,10 @@ if __name__ == '__main__':
     length = batch_size * num_classes * width_out * height_out
 
     print(files)
-    train_dataset = NpzDataset(files[:100], features)
+    train_dataset = NpzDataset(files[:10], features)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, drop_last=True, shuffle=True)
 
-    test_dataset = NpzDataset(files[100:120], features)
+    test_dataset = NpzDataset(files[10:15], features)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, drop_last=True)
 
     unet = UNet(
