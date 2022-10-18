@@ -99,6 +99,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('-i', '--indir', required=True, type=str)
     arg_parser.add_argument('-e', '--epochs', required=True, type=int)
     arg_parser.add_argument('-o', '--outdir', required=True, type=str)
+    arg_parser.add_argument('--gpus', nargs='+', help='GPUs to run on in the form 0 1 etc.')
     args = arg_parser.parse_args()
 
     try:
@@ -106,18 +107,18 @@ if __name__ == '__main__':
     except FileExistsError:
         pass
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('Device:', device)
 
     files = glob(f'{args.indir}/*.npz')
 
-    features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'rho']
+    #features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'rho']
     height_out = 344
     width_out = 620
     
-    # features = ['Bx', 'By', 'Bz', 'absE', 'rho']
-    # height_out = 216
-    # width_out = 535
+    features = ['Bx', 'By', 'Bz', 'absE', 'rho', 'agyrotropy']
+    #height_out = 216
+    #width_out = 535
     
     num_classes = 1
     batch_size = 1
@@ -126,24 +127,30 @@ if __name__ == '__main__':
     length = batch_size * num_classes * width_out * height_out
 
     print(files)
-    train_dataset = NpzDataset(files[:200], features)
+    train_dataset = NpzDataset(files[:100], features)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, drop_last=True, shuffle=True)
 
-    test_dataset = NpzDataset(files[200:250], features)
+    test_dataset = NpzDataset(files[100:120], features)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size, drop_last=True)
 
     unet = UNet(
-        enc_chs=(len(features), 64, 128, 256),
-        dec_chs=(256, 128, 64),
+        enc_chs=(len(features), 64, 128, 256, 512),
+        dec_chs=(512, 256, 128, 64),
         num_class=1,
         retain_dim=True,
         out_sz=(height_out, width_out)
-    ).to(device)
+    )
     print(unet)
 
+    if args.gpus:
+        print('gpus:', args.gpus)
+        unet = torch.nn.parallel.DataParallel(unet, device_ids=[int(gpu) for gpu in args.gpus])
+
+    unet.to(device)
+
     criterion = torch.nn.BCELoss()
-    optimizer = torch.optim.Adam(unet.parameters(), lr=1.e-3)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min')
+    optimizer = torch.optim.Adam(unet.parameters(), lr=1.e-5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, threshold=5.e-5)
 
     unet = train(unet, train_loader, device, criterion, optimizer, scheduler, length, test_loader, args.outdir)
     print('Finished training!\n')
