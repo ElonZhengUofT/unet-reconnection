@@ -6,6 +6,7 @@ from model import UNet
 from utils import iou_score
 import numpy as np
 import argparse
+import json
 import os
 
 
@@ -108,9 +109,6 @@ if __name__ == '__main__':
     except FileExistsError:
         pass
 
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-    print('Device:', device)
-
     files = glob(f'{args.indir}/*.npz')
 
     #features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'rho']
@@ -144,9 +142,14 @@ if __name__ == '__main__':
     print(unet)
 
     if args.gpus:
+        assert torch.cuda.is_available()
+        device = torch.device(f'cuda:{args.gpus[0]}')
         print('gpus:', args.gpus)
         unet = torch.nn.parallel.DataParallel(unet, device_ids=[int(gpu) for gpu in args.gpus])
-
+    else:
+        device = 'cpu'
+    
+    print('device:', device)
     unet.to(device)
 
     criterion = torch.nn.BCELoss()
