@@ -106,9 +106,14 @@ if __name__ == '__main__':
     arg_parser.add_argument('-e', '--epochs', required=True, type=int)
     arg_parser.add_argument('-o', '--outdir', required=True, type=str)
     arg_parser.add_argument('-b', '--batch-size', default=1, type=int)
+    arg_parser.add_argument('-l', '--learning-rate', default=1.e-5, type=float)
+    arg_parser.add_argument('-c', '--num-classes', default=1, type=int)
+    arg_parser.add_argument('-h', '--height', default=344, type=int)
+    arg_parser.add_argument('-w', '--width', default=620, type=int)
     arg_parser.add_argument('-n', '--normalize', action='store_true')
     arg_parser.add_argument('-s', '--standardize', action='store_true')
-    arg_parser.add_argument('--gpus', nargs='+', help='GPUs to run on in the form 0 1 etc.')
+    arg_parser.add_argument('-r', '--raw', action='store_true', help='run with only raw features, otherwise all are used')
+    arg_parser.add_argument('-g', '--gpus', nargs='+', help='GPUs to run on in the form 0 1 etc.')
     args = arg_parser.parse_args()
 
     try:
@@ -118,16 +123,13 @@ if __name__ == '__main__':
 
     files = sorted(glob(f'{args.indir}/*.npz'))
 
-    features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'vx', 'vy', 'vz', 'rho', 'anisotropy', 'agyrotropy']
-    
-    height_out = 344
-    width_out = 620
-    num_classes = 1
+    features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'vx', 'vy', 'vz', 'rho']
+    if not args.raw:
+        features += ['anisotropy', 'agyrotropy']
 
-    length = args.batch_size * num_classes * width_out * height_out
+    length = args.batch_size * args.num_classes * args.width * args.height
 
     print(files)
-    print('Normalize features:', args.normalize)
     train_dataset = NpzDataset(files[:20], features, args.normalize, args.standardize)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True, shuffle=True)
 
@@ -137,9 +139,9 @@ if __name__ == '__main__':
     unet = UNet(
         enc_chs=(len(features), 64, 128, 256, 512),
         dec_chs=(512, 256, 128, 64),
-        num_class=1,
+        num_class=args.num_classes,
         retain_dim=True,
-        out_sz=(height_out, width_out)
+        out_sz=(args.height, args.width)
     )
     print(unet)
 
@@ -155,7 +157,7 @@ if __name__ == '__main__':
     unet.to(device)
 
     criterion = torch.nn.BCELoss()
-    optimizer = torch.optim.Adam(unet.parameters(), lr=1.e-5)
+    optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, threshold=1.e-5)
 
     unet = train(unet, train_loader, device, criterion, optimizer, scheduler, length, test_loader, args.epochs, args.outdir)
