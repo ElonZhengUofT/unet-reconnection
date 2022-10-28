@@ -12,3 +12,22 @@ def iou_score(target, prediction):
         union = np.logical_or(target, prediction)
         iou_score = np.sum(intersection) / np.sum(union)
     return iou_score.item()
+
+def normalize(name, feature, norms):
+    if name.startswith('E'):
+        max_val = np.max(norms['E'])
+    elif name.startswith('B'):
+        max_val = np.max(norms['B'])
+    elif name.startswith('v'):
+        max_val = np.max(norms['v'])
+    else:
+        max_val = np.max(feature)
+    return feature / max_val
+
+def standardize(feature):
+    avg = np.mean(feature)
+    std = np.std(feature)
+    return (feature - avg) / std
+
+def euclidian(x, y, z):
+    return np.sqrt(x**2 + y**2 + z**2)
