@@ -1,0 +1,89 @@
+{
+  "args": {
+    "indir": "data",
+    "outdir": "results/5",
+    "file_fraction": 0.05,
+    "data_splits": [
+      0.8,
+      0.1,
+      0.1
+    ],
+    "epochs": 5,
+    "batch_size": 1,
+    "learning_rate": 1e-05,
+    "num_classes": 1,
+    "height": 344,
+    "width": 620,
+    "normalize": true,
+    "standardize": false,
+    "raw": false,
+    "gpus": [
+      "1"
+    ]
+  },
+  "features": [
+    "Bx",
+    "By",
+    "Bz",
+    "Ex",
+    "Ey",
+    "Ez",
+    "vx",
+    "vy",
+    "vz",
+    "rho",
+    "anisotropy",
+    "agyrotropy"
+  ],
+  "train_losses": [
+    0.7267999649047852,
+    0.7076945900917053,
+    0.6286246180534363,
+    0.0031101973727345467,
+    0.0013649247121065855
+  ],
+  "val_losses": [
+    0.7262463569641113,
+    0.7064945697784424,
+    0.6180378794670105,
+    0.0017847390845417976,
+    0.0013021004851907492
+  ],
+  "test_loss": 0.0013180243549868464,
+  "train_files": [
+    "data/3740.npz",
+    "data/3825.npz",
+    "data/3791.npz",
+    "data/4165.npz",
+    "data/3618.npz",
+    "data/4090.npz",
+    "data/3888.npz",
+    "data/3859.npz",
+    "data/4041.npz",
+    "data/3901.npz",
+    "data/4119.npz",
+    "data/3664.npz",
+    "data/4097.npz",
+    "data/4046.npz",
+    "data/3906.npz",
+    "data/3663.npz",
+    "data/3747.npz",
+    "data/3822.npz",
+    "data/3796.npz",
+    "data/4162.npz",
+    "data/3735.npz",
+    "data/4099.npz",
+    "data/3881.npz",
+    "data/3850.npz"
+  ],
+  "val_files": [
+    "data/4048.npz",
+    "data/3908.npz",
+    "data/4110.npz"
+  ],
+  "test_files": [
+    "data/3749.npz",
+    "data/3798.npz",
+    "data/4034.npz"
+  ]
+}
