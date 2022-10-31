@@ -1,9 +1,10 @@
+#!/usr/bin/env python
 import torch
 from tqdm import tqdm
 from glob import glob
-from data import NpzDataset
-from model import UNet
-from utils import iou_score
+from src.data import NpzDataset
+from src.model import UNet
+from src.utils import iou_score
 from plot import plot_comparison
 import numpy as np
 import argparse
@@ -46,13 +47,11 @@ def train(
             labels = labels.reshape(length)
             not_earth = not_earth.reshape(length)
 
-            # loss = criterion(outputs, labels)
             loss = criterion(outputs[not_earth], labels[not_earth])
             
             loss.backward()
             optimizer.step()
 
-        # print statistics
         print(f'{(epoch + 1):3d} loss: {loss.item()}')
         train_losses.append(loss.item())
 
@@ -101,7 +100,7 @@ def evaluate(model, data_loader, device, criterion, length, outdir):
             truth = torch.cat((truth, flat_labels))
 
             if i == 1:
-                plot_comparison(outputs.detach().cpu().numpy().squeeze(), labels.detach().cpu().numpy().squeeze(), f'{outdir}/1.png', i)
+                plot_comparison(outputs[0].detach().cpu().numpy().squeeze(), labels[0].detach().cpu().numpy().squeeze(), f'{outdir}/1.png', i)
     
     loss = criterion(preds, truth)
 
@@ -115,10 +114,10 @@ def evaluate(model, data_loader, device, criterion, length, outdir):
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-i', '--indir', required=True, type=str)
+    arg_parser.add_argument('-o', '--outdir', required=True, type=str)
     arg_parser.add_argument('-f', '--file-fraction', default=1.0, type=float)
     arg_parser.add_argument('-d', '--data-splits', default=[0.8, 0.1, 0.1], nargs='+')
-    arg_parser.add_argument('-e', '--epochs', required=True, type=int)
-    arg_parser.add_argument('-o', '--outdir', required=True, type=str)
+    arg_parser.add_argument('-e', '--epochs', default=10, type=int)
     arg_parser.add_argument('-b', '--batch-size', default=1, type=int)
     arg_parser.add_argument('-l', '--learning-rate', default=1.e-5, type=float)
     arg_parser.add_argument('-c', '--num-classes', default=1, type=int)
@@ -144,6 +143,7 @@ if __name__ == '__main__':
     features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'vx', 'vy', 'vz', 'rho']
     if not args.raw:
         features += ['anisotropy', 'agyrotropy']
+    print(len(features), 'features:', features)
 
     length = args.batch_size * args.num_classes * args.width * args.height   
 

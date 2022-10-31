@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 import numpy as np
-from utils import normalize, standardize, euclidian
+from src.utils import normalize, standardize, euclidian
 
 
 class NpzDataset(Dataset):

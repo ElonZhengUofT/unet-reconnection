@@ -1,7 +1,8 @@
+#!/usr/bin/env python
 import matplotlib.pyplot as plt
 import numpy as np
 from glob import glob
-from utils import iou_score
+from src.utils import iou_score
 import argparse
 import gif
 import os
