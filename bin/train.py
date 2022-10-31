@@ -31,6 +31,7 @@ def train(
 
     train_losses = []
     val_losses = []
+    best_val_loss = np.inf
 
     for epoch in range(epochs):
         for data in tqdm(train_loader):
@@ -55,42 +56,36 @@ def train(
         print(f'{(epoch + 1):3d} loss: {loss.item()}')
         train_losses.append(loss.item())
 
-        eval_dir = f'{outdir}/{epoch}'
+        val_dir = os.path.join(outdir, 'val', str(epoch))
         try:
-            os.makedirs(eval_dir)
+            os.makedirs(val_dir)
         except FileExistsError:
             pass
-        val_loss = evaluate(model, val_loader, device, criterion, length, eval_dir)
+        val_loss = evaluate(model, val_loader, device, criterion, length, val_dir, epoch)
         val_losses.append(val_loss)
+
+        if val_loss < best_val_loss:
+            state_dict = model.module.state_dict()
+            torch.save(state_dict, f=os.path.join(outdir, 'unet.pt'))
+            best_val_loss = val_loss
 
         scheduler.step(val_loss)
 
-    losses = {
-        'train_losses': train_losses,
-        'val_losses': val_losses
-    }
-
-    np.savez(f'{outdir}/losses.npz', **losses)
-
-    return model
+    return model, train_losses, val_losses
 
 
-def evaluate(model, data_loader, device, criterion, length, outdir):
+def evaluate(model, data_loader, device, criterion, length, outdir, epoch):
     model.eval()
     preds = torch.tensor([], dtype=torch.float32).to(device)
     truth = torch.tensor([], dtype=torch.float32).to(device)
+
+    n_dumps = 0
 
     with torch.no_grad():
         for i, data in tqdm(enumerate(data_loader)):
             inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth'].to(device)
 
             outputs = unet(inputs)
-
-            results = {
-                'outputs': outputs.detach().cpu().numpy().squeeze(),
-                'labels': labels.detach().cpu().numpy().squeeze()
-            }
-            np.savez(f'{outdir}/{i}.npz', **results)
 
             not_earth = not_earth.reshape(length)
             flat_outputs = outputs.reshape(length)[not_earth]
@@ -99,8 +94,24 @@ def evaluate(model, data_loader, device, criterion, length, outdir):
             preds = torch.cat((preds, flat_outputs))
             truth = torch.cat((truth, flat_labels))
 
-            if i == 1:
-                plot_comparison(outputs[0].detach().cpu().numpy().squeeze(), labels[0].detach().cpu().numpy().squeeze(), f'{outdir}/1.png', i)
+            if n_dumps < 5:
+                for c in range(outputs.shape[0]):
+                    plot_comparison(
+                        preds=outputs[c].detach().cpu().numpy().squeeze(), 
+                        truth=labels[c].detach().cpu().numpy().squeeze(), 
+                        file=os.path.join(outdir, f'{i}.png'),
+                        epoch=epoch
+                    )
+
+                    results = {
+                        'outputs': outputs.detach().cpu().numpy().squeeze(),
+                        'labels': labels.detach().cpu().numpy().squeeze()
+                    }
+                    np.savez(os.path.join(outdir, f'{i}.npz'), **results)
+
+                    n_dumps += 1
+                    if n_dumps == 5:
+                        break
     
     loss = criterion(preds, truth)
 
@@ -134,7 +145,7 @@ if __name__ == '__main__':
     except FileExistsError:
         pass
 
-    files = glob(f'{args.indir}/*.npz')
+    files = glob(os.path.join(args.indir, '*.npz'))
     train_files, val_files, test_files = split_data(files, args.file_fraction, args.data_splits)
     print(len(train_files), 'train files:', train_files)
     print(len(val_files), 'val files:', val_files)
@@ -151,7 +162,7 @@ if __name__ == '__main__':
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True, shuffle=True)
 
     val_dataset = NpzDataset(val_files, features, args.normalize, args.standardize)
-    val_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True)
 
     test_dataset = NpzDataset(test_files, features, args.normalize, args.standardize)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True)
@@ -180,8 +191,32 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, threshold=1.e-5)
 
-    unet = train(unet, train_loader, device, criterion, optimizer, scheduler, length, val_loader, args.epochs, args.outdir)
-    print('Finished training!\n')
+    unet, train_losses, val_losses = train(
+        unet, train_loader, device, criterion, optimizer,
+        scheduler, length, val_loader, args.epochs, args.outdir
+    )
+    print('Finished training!')
 
     print('Evaluating...')
-    evaluate(unet, test_loader, device, criterion, length, args.outdir)
+    test_dir = os.path.join(args.outdir, 'test')
+    try:
+        os.makedirs(test_dir)
+    except FileExistsError:
+        pass
+    test_loss = evaluate(unet, test_loader, device, criterion, length, test_dir, args.epochs)
+
+    with open(os.path.join(args.outdir, 'metadata.json'), 'w') as f:
+        json.dump(
+            {
+                'args': vars(args),
+                'features': features,
+                'train_losses': train_losses,
+                'val_losses': val_losses,
+                'test_loss': test_loss,
+                'train_files': train_files,
+                'val_files': val_files,
+                'test_files': test_files,
+            },
+            fp=f,
+            indent=2
+        )

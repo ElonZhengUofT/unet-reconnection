@@ -4,48 +4,33 @@ import numpy as np
 from glob import glob
 from src.utils import iou_score
 import argparse
+import json
 import gif
 import os
 
 
 def plot_reconnection_points(file):
     data = np.load(file)
-    print(data.files)
+    fig = plt.figure(figsize=(10, 6))
 
-    xmin = data['xmin']
-    xmax = data['xmax']
-    zmin = data['zmin']
-    zmax = data['zmax']
-    anisoP = data['anisoP']
-    labeled_domain = data['labeled_domain']
+    xx = np.linspace(data['xmin'], data['xmax'], (data['anisotropy'].shape[1]))
+    zz = np.linspace(data['zmin'], data['zmax'], (data['anisotropy'].shape[0]))
 
-    xx = np.linspace(xmin, xmax, (np.array(anisoP).shape[1]))
-    zz = np.linspace(zmin, zmax, (np.array(anisoP).shape[0]))
-
-    labeled_indices = labeled_domain.nonzero()
+    labeled_indices = data['labeled_domain'].nonzero()
     labeled_z = zz[labeled_indices[0]]
     labeled_x = xx[labeled_indices[1]]
 
-    fig = plt.figure(figsize=(12, 8))
-    plt.rcParams['font.size'] = '14'
+    ax = fig.add_subplot()
 
-    ax1= fig.add_subplot(2, 1, 1)
-    ax2= fig.add_subplot(2, 1, 2)
+    c = ax.imshow(data['anisotropy'], extent=[data['xmin'], data['xmax'], data['zmin'], data['zmax']])
+    ax.scatter(labeled_x, labeled_z, marker='x', color='red')
+    ax.set_title('Pseudocolor-Anisotropy with reconnection points', fontsize=16)
+    ax.set_xlabel('x/Re', fontsize=12)
+    ax.set_ylabel('z/Re', fontsize=12)
+    fig.colorbar(c, ax=ax)
 
-    c1 = ax1.pcolor(xx, zz, anisoP)
-    c1 = ax1.scatter(labeled_x, labeled_z, marker='x', color='red', s=134)
-    ax1.set_xlim([xmin, xmax])
-    ax1.set_ylim([zmin, zmax])
-    ax1.title.set_text('Pseudocolor-Anisotropy; red crosses - X-points')
-    fig.colorbar(c1, ax=ax1)
-
-    c2 = ax2.pcolor(xx, zz, labeled_domain)
-    ax2.title.set_text('Labeled pixels')
-    ax2.set_xlabel('x/Re',fontsize=16)
-    ax2.set_ylabel('z/Re',fontsize=16)
-    fig.colorbar(c2, ax=ax2)
-
-    plt.savefig('reconnection_points.png')
+    fig.savefig('reconnection_points.png', bbox_inches='tight')
+    plt.close()
 
 
 @gif.frame
@@ -66,10 +51,10 @@ def plot_comparison(preds, truth, file, epoch):
     plt.savefig(file)
 
 
-def plot_loss(losses, outdir):
-    x = range(21, len(losses['train_losses']) + 1)
-    plt.plot(x, losses['train_losses'][20:], label='Training loss')
-    plt.plot(x, losses['test_losses'][20:], label='Test loss')
+def plot_loss(train_losses, val_losses, outdir):
+    x = range(2, len(train_losses) + 1)
+    plt.plot(x, train_losses[1:], label='Training loss')
+    plt.plot(x, val_losses[1:], label='Validation loss')
 
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
@@ -92,21 +77,23 @@ if __name__ == '__main__':
     arg_parser.add_argument('-e', '--epochs', required=True, type=int)
     args = arg_parser.parse_args()
 
-    files = glob(f'{args.dir}/*.npz')
+    files = glob(os.path.join(args.dir, '*.npz'))
 
-    # plot_reconnection_points('data-large/3612.npz')
+    plot_reconnection_points('data/3600.npz')
 
-    losses = np.load(f'{args.dir}/losses.npz')
-    plot_loss(losses, args.dir)
+    with open(os.path.join(args.dir, 'metadata.json'), 'r') as f:
+        metadata = json.load(f)
+
+    plot_loss(metadata['train_losses'], metadata['val_losses'], args.dir)
 
     frames = []
     iou_scores = []
     for i in range(args.epochs):
-        data = np.load(f'{args.dir}/{i}/0.npz')
+        data = np.load(os.path.join(args.dir, 'val', str(i), '0.npz'))
         preds, truth = data['outputs'], data['labels']
         iou_scores.append(iou_score(truth, preds))
-        frame = plot_comparison(preds, truth, f'{args.dir}/{i}/0.png', i)
+        frame = plot_comparison(preds, truth, os.path.join(args.dir, 'val', str(i), '0.png'), i)
         frames.append(frame)
 
-    gif.save(frames, f'{args.dir}/epochs.gif', duration=100)
+    gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
     plot_iou_score(args.epochs, iou_scores, args.dir)
