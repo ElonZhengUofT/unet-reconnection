@@ -2,7 +2,7 @@ FROM pytorch/pytorch:latest
 
 WORKDIR /work
 
-RUN pip install matplotlib tqdm gif
+RUN pip install matplotlib tqdm gif sklearn
 
-ENV PATH=/work/2d-reconnection/bin:$PATH
-ENV PYTHONPATH=/work/2d-reconnection:$PYTHONPATH
+ENV PATH=/work/unet-reconnection/bin:$PATH
+ENV PYTHONPATH=/work/unet-reconnection:$PYTHONPATH

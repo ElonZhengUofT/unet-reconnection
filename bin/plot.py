@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from glob import glob
 from src.utils import iou_score
+from sklearn import metrics
 import argparse
 import json
 import gif
@@ -71,6 +72,21 @@ def plot_iou_score(epochs, iou_scores, outdir):
     plt.close()
 
 
+def plot_roc(preds, truth, outdir):
+    fpr, tpr, threshold = metrics.roc_curve(truth, preds)
+    roc_auc = metrics.auc(fpr, tpr)
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(fpr, tpr, 'b', label=f'AUC = {roc_auc:0.2f}')
+    plt.legend(loc='lower right')
+    plt.plot([0, 1], [0, 1], 'r--')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    plt.savefig(os.path.join(outdir, 'roc_curve.png'))
+    plt.close()
+
+
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-d', '--dir', required=True, type=str)
@@ -88,7 +104,7 @@ if __name__ == '__main__':
 
     frames = []
     iou_scores = []
-    for i in range(args.epochs):
+    for i in range(1, args.epochs + 1):
         data = np.load(os.path.join(args.dir, 'val', str(i), '0.npz'))
         preds, truth = data['outputs'], data['labels']
         iou_scores.append(iou_score(truth, preds))
@@ -96,4 +112,15 @@ if __name__ == '__main__':
         frames.append(frame)
 
     gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
+
     plot_iou_score(args.epochs, iou_scores, args.dir)
+
+    all_preds = np.array([])
+    all_truth = np.array([])
+    for test_file in glob(os.path.join(args.dir, 'test', '*.npz')):
+        data = np.load(test_file)
+        preds, truth = data['outputs'], data['labels']
+        all_preds = np.concatenate([all_preds, preds.ravel()])
+        all_truth = np.concatenate([all_truth, truth.ravel()])
+    
+    plot_roc(all_preds, all_truth, args.dir)
