@@ -4,7 +4,7 @@ from tqdm import tqdm
 from glob import glob
 from src.data import NpzDataset
 from src.model import UNet
-from src.utils import iou_score
+from src.utils import EarlyStopping
 from plot import plot_comparison
 import numpy as np
 import argparse
@@ -25,15 +25,15 @@ def split_data(files, file_fraction, data_splits):
 
 
 def train(
-        model, train_loader, device, criterion, optimizer, scheduler, length,
-        val_loader, epochs, outdir
+        model, train_loader, device, criterion, optimizer, scheduler, 
+        early_stopping, length, val_loader, epochs, outdir
     ):
 
     train_losses = []
     val_losses = []
     best_val_loss = np.inf
 
-    for epoch in range(epochs):
+    for epoch in range(1, epochs + 1):
         for data in tqdm(train_loader):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth'].to(device)
@@ -53,7 +53,7 @@ def train(
             loss.backward()
             optimizer.step()
 
-        print(f'{(epoch + 1):3d} loss: {loss.item()}')
+        print(f'{epoch:3d} loss: {loss.item()}')
         train_losses.append(loss.item())
 
         val_dir = os.path.join(outdir, 'val', str(epoch))
@@ -63,15 +63,21 @@ def train(
             pass
         val_loss = evaluate(model, val_loader, device, criterion, length, val_dir, epoch)
         val_losses.append(val_loss)
+        print('Validation loss:', val_loss)
 
         if val_loss < best_val_loss:
             state_dict = model.module.state_dict()
             torch.save(state_dict, f=os.path.join(outdir, 'unet.pt'))
+            best_model = model
+            best_epoch = epoch
             best_val_loss = val_loss
 
         scheduler.step(val_loss)
+        early_stopping(val_loss)
+        if early_stopping.early_stop:
+            break
 
-    return model, train_losses, val_losses
+    return best_model, best_epoch, train_losses, val_losses
 
 
 def evaluate(model, data_loader, device, criterion, length, outdir, epoch):
@@ -114,11 +120,6 @@ def evaluate(model, data_loader, device, criterion, length, outdir, epoch):
                         break
     
     loss = criterion(preds, truth)
-
-    print('Test loss:', loss.item())
-    
-    print('IoU score:', iou_score(truth, preds))
-
     return loss.item()
 
 
@@ -159,7 +160,7 @@ if __name__ == '__main__':
     length = args.batch_size * args.num_classes * args.width * args.height   
 
     train_dataset = NpzDataset(train_files, features, args.normalize, args.standardize)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True, shuffle=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True)
 
     val_dataset = NpzDataset(val_files, features, args.normalize, args.standardize)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True)
@@ -168,8 +169,8 @@ if __name__ == '__main__':
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True)
 
     unet = UNet(
-        enc_chs=(len(features), 64, 128, 256, 512),
-        dec_chs=(512, 256, 128, 64),
+        enc_chs=(len(features), 64, 128, 256),
+        dec_chs=(256, 128, 64),
         num_class=args.num_classes,
         retain_dim=True,
         out_sz=(args.height, args.width)
@@ -189,21 +190,25 @@ if __name__ == '__main__':
 
     criterion = torch.nn.BCELoss()
     optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', patience=5, threshold=1.e-5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=0.5, patience=5, threshold=1.e-5, verbose=True
+    )
+    early_stopping = EarlyStopping()
 
-    unet, train_losses, val_losses = train(
-        unet, train_loader, device, criterion, optimizer,
-        scheduler, length, val_loader, args.epochs, args.outdir
+    best_model, best_epoch, train_losses, val_losses = train(
+        unet, train_loader, device, criterion, optimizer, scheduler, 
+        early_stopping, length, val_loader, args.epochs, args.outdir
     )
     print('Finished training!')
 
-    print('Evaluating...')
+    print('Evaluating best model from epoch', best_epoch)
     test_dir = os.path.join(args.outdir, 'test')
     try:
         os.makedirs(test_dir)
     except FileExistsError:
         pass
-    test_loss = evaluate(unet, test_loader, device, criterion, length, test_dir, args.epochs)
+    test_loss = evaluate(best_model, test_loader, device, criterion, length, test_dir, args.epochs)
+    print('Test loss:', test_loss)
 
     with open(os.path.join(args.outdir, 'metadata.json'), 'w') as f:
         json.dump(
@@ -213,6 +218,7 @@ if __name__ == '__main__':
                 'train_losses': train_losses,
                 'val_losses': val_losses,
                 'test_loss': test_loss,
+                'best_epoch': best_epoch,
                 'train_files': train_files,
                 'val_files': val_files,
                 'test_files': test_files,
