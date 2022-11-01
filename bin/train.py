@@ -26,11 +26,13 @@ def split_data(files, file_fraction, data_splits):
 
 def train(
         model, train_loader, device, criterion, optimizer, scheduler, 
-        early_stopping, length, val_loader, epochs, outdir
+        early_stopping, length, val_loader, epochs, lr, outdir
     ):
 
     train_losses = []
     val_losses = []
+    lr_change_epoch = 0
+    lr_reduction = {lr_change_epoch: lr}
     best_val_loss = np.inf
 
     for epoch in range(1, epochs + 1):
@@ -74,10 +76,16 @@ def train(
 
         scheduler.step(val_loss)
         early_stopping(val_loss)
+
+        [last_lr] = scheduler._last_lr
+        if last_lr < lr_reduction[lr_change_epoch]:
+            lr_change_epoch = epoch
+            lr_reduction[lr_change_epoch] = last_lr
+
         if early_stopping.early_stop:
             break
 
-    return best_model, best_epoch, train_losses, val_losses
+    return best_model, best_epoch, epoch, lr_reduction, train_losses, val_losses
 
 
 def evaluate(model, data_loader, device, criterion, length, outdir, epoch):
@@ -195,9 +203,9 @@ if __name__ == '__main__':
     )
     early_stopping = EarlyStopping()
 
-    best_model, best_epoch, train_losses, val_losses = train(
-        unet, train_loader, device, criterion, optimizer, scheduler, 
-        early_stopping, length, val_loader, args.epochs, args.outdir
+    best_model, best_epoch, last_epoch, lr_reduction, train_losses, val_losses = train(
+        unet, train_loader, device, criterion, optimizer, scheduler, early_stopping, 
+        length, val_loader, args.epochs, args.learning_rate, args.outdir
     )
     print('Finished training!')
 
@@ -218,7 +226,9 @@ if __name__ == '__main__':
                 'train_losses': train_losses,
                 'val_losses': val_losses,
                 'test_loss': test_loss,
+                'last_epoch': last_epoch,
                 'best_epoch': best_epoch,
+                'lr_reduction': lr_reduction,
                 'train_files': train_files,
                 'val_files': val_files,
                 'test_files': test_files,

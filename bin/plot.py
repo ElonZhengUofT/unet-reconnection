@@ -52,10 +52,13 @@ def plot_comparison(preds, truth, file, epoch):
     plt.savefig(file)
 
 
-def plot_loss(train_losses, val_losses, outdir):
+def plot_loss(train_losses, val_losses, lr_reduction_indices, outdir):
     x = range(2, len(train_losses) + 1)
     plt.plot(x, train_losses[1:], label='Training loss')
     plt.plot(x, val_losses[1:], label='Validation loss')
+
+    ymin, ymax = plt.gca().get_ylim()
+    plt.vlines(lr_reduction_indices[1:], ymin=ymin, ymax=ymax, ls='dashed', lw=0.8, colors='gray')
 
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
@@ -90,7 +93,6 @@ def plot_roc(preds, truth, outdir):
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-d', '--dir', required=True, type=str)
-    arg_parser.add_argument('-e', '--epochs', required=True, type=int)
     args = arg_parser.parse_args()
 
     files = glob(os.path.join(args.dir, '*.npz'))
@@ -100,11 +102,12 @@ if __name__ == '__main__':
     with open(os.path.join(args.dir, 'metadata.json'), 'r') as f:
         metadata = json.load(f)
 
-    plot_loss(metadata['train_losses'], metadata['val_losses'], args.dir)
+    lr_reduction_indices = [int(epoch) for epoch in metadata['lr_reduction'].keys()]
+    plot_loss(metadata['train_losses'], metadata['val_losses'], lr_reduction_indices, args.dir)
 
     frames = []
     iou_scores = []
-    for i in range(1, args.epochs + 1):
+    for i in range(1, metadata['last_epoch'] + 1):
         data = np.load(os.path.join(args.dir, 'val', str(i), '0.npz'))
         preds, truth = data['outputs'], data['labels']
         iou_scores.append(iou_score(truth, preds))
@@ -113,7 +116,7 @@ if __name__ == '__main__':
 
     gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
 
-    plot_iou_score(args.epochs, iou_scores, args.dir)
+    plot_iou_score(metadata['last_epoch'], iou_scores, args.dir)
 
     all_preds = np.array([])
     all_truth = np.array([])
