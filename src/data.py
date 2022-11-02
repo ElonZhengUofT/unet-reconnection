@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 from src.utils import normalize, standardize, euclidian
+from pathlib import Path
 
 
 class NpzDataset(Dataset):
@@ -45,7 +46,8 @@ class NpzDataset(Dataset):
         return {
             'X': torch.tensor(X, dtype=torch.float32), 
             'y': torch.tensor(y, dtype=torch.float32),
-            'not_earth': torch.tensor(not_earth, dtype=torch.bool)
+            'not_earth': torch.tensor(not_earth, dtype=torch.bool),
+            'fname': Path(self.files[index]).stem
         }
     
     def __len__(self):

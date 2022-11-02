@@ -4,6 +4,7 @@ import numpy as np
 from glob import glob
 from src.utils import iou_score
 from sklearn import metrics
+from pathlib import Path
 import argparse
 import json
 import gif
@@ -53,9 +54,9 @@ def plot_comparison(preds, truth, file, epoch):
 
 
 def plot_loss(train_losses, val_losses, lr_reduction_indices, outdir):
-    x = range(2, len(train_losses) + 1)
-    plt.plot(x, train_losses[1:], label='Training loss')
-    plt.plot(x, val_losses[1:], label='Validation loss')
+    x = range(4, len(train_losses) + 1)
+    plt.plot(x, train_losses[3:], label='Training loss')
+    plt.plot(x, val_losses[3:], label='Validation loss')
 
     ymin, ymax = plt.gca().get_ylim()
     plt.vlines(lr_reduction_indices[1:], ymin=ymin, ymax=ymax, ls='dashed', lw=0.8, colors='gray')
@@ -95,29 +96,31 @@ if __name__ == '__main__':
     arg_parser.add_argument('-d', '--dir', required=True, type=str)
     args = arg_parser.parse_args()
 
-    files = glob(os.path.join(args.dir, '*.npz'))
-
-    plot_reconnection_points('data/3600.npz')
-
+    # Read metadata
     with open(os.path.join(args.dir, 'metadata.json'), 'r') as f:
         metadata = json.load(f)
 
+    # Plot anisotropy with reconnection points
+    plot_reconnection_points('data/3600.npz')
+
+    # Plot loss curve
     lr_reduction_indices = [int(epoch) for epoch in metadata['lr_reduction'].keys()]
     plot_loss(metadata['train_losses'], metadata['val_losses'], lr_reduction_indices, args.dir)
 
+    # Create GIF, plot IoU progression
     frames = []
     iou_scores = []
+    fname = Path(metadata['val_files'][0]).stem
     for i in range(1, metadata['last_epoch'] + 1):
-        data = np.load(os.path.join(args.dir, 'val', str(i), '0.npz'))
+        data = np.load(os.path.join(args.dir, 'val', str(i), f'{fname}.npz'))
         preds, truth = data['outputs'], data['labels']
         iou_scores.append(iou_score(truth, preds))
-        frame = plot_comparison(preds, truth, os.path.join(args.dir, 'val', str(i), '0.png'), i)
+        frame = plot_comparison(preds, truth, os.path.join(args.dir, 'val', str(i), f'{fname}.png'), i)
         frames.append(frame)
-
     gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
-
     plot_iou_score(metadata['last_epoch'], iou_scores, args.dir)
 
+    # Plot ROC curve
     all_preds = np.array([])
     all_truth = np.array([])
     for test_file in glob(os.path.join(args.dir, 'test', '*.npz')):
@@ -125,5 +128,4 @@ if __name__ == '__main__':
         preds, truth = data['outputs'], data['labels']
         all_preds = np.concatenate([all_preds, preds.ravel()])
         all_truth = np.concatenate([all_truth, truth.ravel()])
-    
     plot_roc(all_preds, all_truth, args.dir)

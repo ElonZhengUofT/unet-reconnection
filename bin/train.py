@@ -9,6 +9,7 @@ from plot import plot_comparison
 import numpy as np
 import argparse
 import json
+import shutil
 import os
 
 
@@ -63,13 +64,21 @@ def train(
             os.makedirs(val_dir)
         except FileExistsError:
             pass
-        val_loss = evaluate(model, val_loader, device, criterion, length, val_dir, epoch)
+        val_loss = evaluate(
+            model, val_loader, device, criterion, 
+            length, val_dir, epoch, 'val'
+        )
         val_losses.append(val_loss)
         print('Validation loss:', val_loss)
 
+        state_dict = model.module.state_dict()
+        torch.save(state_dict, f=os.path.join(val_dir, 'unet.pt'))
+
         if val_loss < best_val_loss:
-            state_dict = model.module.state_dict()
-            torch.save(state_dict, f=os.path.join(outdir, 'unet.pt'))
+            shutil.copy2(
+                os.path.join(val_dir, 'unet.pt'), 
+                os.path.join(outdir, 'unet_best_epoch.pt')
+            )
             best_model = model
             best_epoch = epoch
             best_val_loss = val_loss
@@ -88,16 +97,17 @@ def train(
     return best_model, best_epoch, epoch, lr_reduction, train_losses, val_losses
 
 
-def evaluate(model, data_loader, device, criterion, length, outdir, epoch):
+def evaluate(model, data_loader, device, criterion, length, outdir, epoch, mode):
     model.eval()
     preds = torch.tensor([], dtype=torch.float32).to(device)
     truth = torch.tensor([], dtype=torch.float32).to(device)
 
-    n_dumps = 0
-
     with torch.no_grad():
         for i, data in tqdm(enumerate(data_loader)):
-            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth'].to(device)
+            inputs, labels, not_earth, fname = (
+                data['X'].to(device), data['y'].to(device), 
+                data['not_earth'].to(device), data['fname']
+            )
 
             outputs = unet(inputs)
 
@@ -108,24 +118,27 @@ def evaluate(model, data_loader, device, criterion, length, outdir, epoch):
             preds = torch.cat((preds, flat_outputs))
             truth = torch.cat((truth, flat_labels))
 
-            if n_dumps < 5:
-                for c in range(outputs.shape[0]):
+            if (mode == 'test') or (i == 0):
+                if mode == 'val':
+                    num_batch = 1
+                else:
+                    num_batch = outputs.shape[0]
+                for b in range(num_batch):
+                    preds_np = outputs[b].detach().cpu().numpy().squeeze()
+                    truth_np = labels[b].detach().cpu().numpy().squeeze()
+
                     plot_comparison(
-                        preds=outputs[c].detach().cpu().numpy().squeeze(), 
-                        truth=labels[c].detach().cpu().numpy().squeeze(), 
-                        file=os.path.join(outdir, f'{i}.png'),
+                        preds=preds_np,
+                        truth=truth_np, 
+                        file=os.path.join(outdir, f'{fname[b]}.png'),
                         epoch=epoch
                     )
 
                     results = {
-                        'outputs': outputs.detach().cpu().numpy().squeeze(),
-                        'labels': labels.detach().cpu().numpy().squeeze()
+                        'outputs': preds_np,
+                        'labels': truth_np
                     }
-                    np.savez(os.path.join(outdir, f'{i}.npz'), **results)
-
-                    n_dumps += 1
-                    if n_dumps == 5:
-                        break
+                    np.savez(os.path.join(outdir, f'{fname[b]}.npz'), **results)
     
     loss = criterion(preds, truth)
     return loss.item()
@@ -145,8 +158,11 @@ if __name__ == '__main__':
     arg_parser.add_argument('-x', '--width', default=620, type=int)
     arg_parser.add_argument('-n', '--normalize', action='store_true')
     arg_parser.add_argument('-s', '--standardize', action='store_true')
-    arg_parser.add_argument('-r', '--raw', action='store_true', help='run with only raw features, otherwise all are used')
     arg_parser.add_argument('-g', '--gpus', nargs='+', help='GPUs to run on in the form 0 1 etc.')
+    arg_parser.add_argument('--velocity', action='store_true')
+    arg_parser.add_argument('--rho', action='store_true')
+    arg_parser.add_argument('--anisotropy', action='store_true')
+    arg_parser.add_argument('--agyrotropy', action='store_true')
     args = arg_parser.parse_args()
 
     try:
@@ -160,9 +176,15 @@ if __name__ == '__main__':
     print(len(val_files), 'val files:', val_files)
     print(len(test_files), 'test files:', test_files)
 
-    features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez', 'vx', 'vy', 'vz', 'rho']
-    if not args.raw:
-        features += ['anisotropy', 'agyrotropy']
+    features = ['Bx', 'By', 'Bz', 'Ex', 'Ey', 'Ez']
+    if args.velocity:
+        features += ['vx', 'vy', 'vz']
+    if args.rho:
+        features += ['rho']
+    if args.anisotropy:
+        features += ['anisotropy']
+    if args.agyrotropy:
+        features += ['agyrotropy']
     print(len(features), 'features:', features)
 
     length = args.batch_size * args.num_classes * args.width * args.height   
@@ -215,7 +237,10 @@ if __name__ == '__main__':
         os.makedirs(test_dir)
     except FileExistsError:
         pass
-    test_loss = evaluate(best_model, test_loader, device, criterion, length, test_dir, args.epochs)
+    test_loss = evaluate(
+        best_model, test_loader, device, criterion, 
+        length, test_dir, args.epochs, 'test'
+    )
     print('Test loss:', test_loss)
 
     with open(os.path.join(args.outdir, 'metadata.json'), 'w') as f:
