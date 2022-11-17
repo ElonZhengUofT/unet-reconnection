@@ -60,7 +60,7 @@ def train(
                 })
 
         print(f'Training loss: {total_loss / total_count}')
-        train_losses.append(loss)
+        train_losses.append(total_loss / total_count)
 
         val_dir = os.path.join(outdir, 'val', str(epoch))
         try:

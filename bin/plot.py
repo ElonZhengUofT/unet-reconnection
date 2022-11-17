@@ -53,13 +53,13 @@ def plot_comparison(preds, truth, file, epoch):
     plt.savefig(file)
 
 
-def plot_loss(train_losses, val_losses, lr_reduction_indices, outdir):
-    x = range(4, len(train_losses) + 1)
-    plt.plot(x, train_losses[3:], label='Training loss')
-    plt.plot(x, val_losses[3:], label='Validation loss')
+def plot_loss(train_losses, val_losses, lr_history, outdir):
+    x = range(2, len(train_losses) + 1)
+    plt.plot(x, train_losses[1:], label='Training loss')
+    plt.plot(x, val_losses[1:], label='Validation loss')
 
     ymin, ymax = plt.gca().get_ylim()
-    plt.vlines(lr_reduction_indices[1:], ymin=ymin, ymax=ymax, ls='dashed', lw=0.8, colors='gray')
+    plt.vlines(lr_history[1:], ymin=ymin, ymax=ymax, ls='dashed', lw=0.8, colors='gray')
 
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
@@ -101,11 +101,11 @@ if __name__ == '__main__':
         metadata = json.load(f)
 
     # Plot anisotropy with reconnection points
-    plot_reconnection_points('data/3600.npz')
+    plot_reconnection_points('sample/data/3600.npz')
 
     # Plot loss curve
-    lr_reduction_indices = [int(epoch) for epoch in metadata['lr_reduction'].keys()]
-    plot_loss(metadata['train_losses'], metadata['val_losses'], lr_reduction_indices, args.dir)
+    lr_history = [int(epoch) for epoch in metadata['lr_history'].keys()]
+    plot_loss(metadata['train_losses'], metadata['val_losses'], lr_history, args.dir)
 
     # Create GIF, plot IoU progression
     frames = []
