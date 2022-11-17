@@ -6,11 +6,12 @@ from pathlib import Path
 
 
 class NpzDataset(Dataset):
-    def __init__(self, npz_file_paths, features, normalize, standardize):
+    def __init__(self, npz_file_paths, features, normalize, standardize, binary):
         self.files = npz_file_paths
         self.features = features
         self.normalize = normalize
         self.standardize = standardize
+        self.binary = binary
     
     def __getitem__(self, index):
         data = np.load(self.files[index])
@@ -41,7 +42,15 @@ class NpzDataset(Dataset):
             data_dict[feature_name] = current_feature
         
         X = np.stack([data_dict[feature_name] for feature_name in self.features], axis=0)
-        y = data['labeled_domain']
+        
+        if self.binary:
+            y = data['labeled_domain'][np.newaxis,:,:]
+            not_earth = not_earth[np.newaxis,:,:]
+        else:
+            label = data['labeled_domain']
+            opposite_label = np.where(label, 1, 0)
+            y = np.stack((label, opposite_label))
+            not_earth = np.stack((not_earth, not_earth))
 
         return {
             'X': torch.tensor(X, dtype=torch.float32), 

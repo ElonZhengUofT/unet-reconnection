@@ -4,7 +4,8 @@ from tqdm import tqdm
 from glob import glob
 from src.data import NpzDataset
 from src.model import UNet
-from src.utils import EarlyStopping
+from src.callbacks import EarlyStopping
+from src.utils import split_data
 from plot import plot_comparison
 import numpy as np
 import argparse
@@ -13,51 +14,53 @@ import shutil
 import os
 
 
-def split_data(files, file_fraction, data_splits):
-    num_files = file_fraction * len(files)
-    train_split, val_split, test_split = data_splits
-    train_index = int(train_split * num_files)
-    val_index = train_index + int(val_split * num_files)
-    test_index = val_index + int(test_split * num_files)
-    train_files = files[:train_index]
-    val_files = files[train_index:val_index]
-    test_files = files[val_index:test_index]
-    return train_files, val_files, test_files
-
-
 def train(
         model, train_loader, device, criterion, optimizer, scheduler, 
-        early_stopping, length, val_loader, epochs, lr, outdir
+        early_stopping, length, val_loader, epochs, lr, binary, outdir
     ):
 
     train_losses = []
     val_losses = []
     lr_change_epoch = 0
-    lr_reduction = {lr_change_epoch: lr}
+    lr_history = {lr_change_epoch: lr}
     best_val_loss = np.inf
 
+    total_count = 0
+    total_loss = 0
+
     for epoch in range(1, epochs + 1):
-        for data in tqdm(train_loader):
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels, not_earth = data['X'].to(device), data['y'].to(device), data['not_earth'].to(device)
+        print('Epoch:', epoch)
+        with tqdm(train_loader) as tq:
+            for data in tq:
+                # get the inputs; data is a list of [inputs, labels]
+                inputs, labels, not_earth = (
+                    data['X'].to(device), data['y'].to(device), 
+                    data['not_earth'].to(device)
+                )
 
-            # zero the parameter gradients
-            optimizer.zero_grad()
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
-            # forward + backward + optimize
-            outputs = model(inputs) # (batch_size, n_fts, img_cols, img_rows)
+                # forward + backward + optimize
+                outputs = model(inputs) # (batch_size, n_classes, img_cols, img_rows)           
 
-            outputs = outputs.reshape(length)
-            labels = labels.reshape(length)
-            not_earth = not_earth.reshape(length)
+                loss = criterion(outputs[not_earth], labels[not_earth])
+                
+                loss.backward()
+                optimizer.step()
 
-            loss = criterion(outputs[not_earth], labels[not_earth])
-            
-            loss.backward()
-            optimizer.step()
+                loss = loss.item()
+                total_loss += loss
 
-        print(f'{epoch:3d} loss: {loss.item()}')
-        train_losses.append(loss.item())
+                count = labels.size(0) * labels.size(2) * labels.size(3)
+                total_count += count
+
+                tq.set_postfix({
+                    'Loss': '%.7f' % (loss / count)
+                })
+
+        print(f'Training loss: {total_loss / total_count}')
+        train_losses.append(loss)
 
         val_dir = os.path.join(outdir, 'val', str(epoch))
         try:
@@ -66,18 +69,22 @@ def train(
             pass
         val_loss = evaluate(
             model, val_loader, device, criterion, 
-            length, val_dir, epoch, 'val'
+            length, val_dir, epoch, binary, mode='val'
         )
         val_losses.append(val_loss)
         print('Validation loss:', val_loss)
 
-        state_dict = model.module.state_dict()
-        torch.save(state_dict, f=os.path.join(val_dir, 'unet.pt'))
+        torch.save(model.module.state_dict(), f=os.path.join(val_dir, 'unet.pt'))
+        torch.save(optimizer.state_dict(), f=os.path.join(val_dir, 'optimizer.pt'))
 
         if val_loss < best_val_loss:
             shutil.copy2(
                 os.path.join(val_dir, 'unet.pt'), 
                 os.path.join(outdir, 'unet_best_epoch.pt')
+            )
+            shutil.copy2(
+                os.path.join(val_dir, 'optimizer.pt'), 
+                os.path.join(outdir, 'optimizer_best_epoch.pt')
             )
             best_model = model
             best_epoch = epoch
@@ -87,61 +94,95 @@ def train(
         early_stopping(val_loss)
 
         [last_lr] = scheduler._last_lr
-        if last_lr < lr_reduction[lr_change_epoch]:
+        if last_lr < lr_history[lr_change_epoch]:
+            # Store which epochs lr changes at
             lr_change_epoch = epoch
-            lr_reduction[lr_change_epoch] = last_lr
+            lr_history[lr_change_epoch] = last_lr
+            
+            print('Restoring best model weights.')
+            model.module.load_state_dict(
+                torch.load(
+                    os.path.join(outdir, 'unet_best_epoch.pt'), map_location=device
+                )
+            )
+            optimizer.load_state_dict(
+                torch.load(
+                    os.path.join(outdir, 'optimizer_best_epoch.pt'), map_location='cpu'
+                )
+            )
 
         if early_stopping.early_stop:
             break
 
-    return best_model, best_epoch, epoch, lr_reduction, train_losses, val_losses
+    return best_model, best_epoch, epoch, lr_history, train_losses, val_losses
 
 
-def evaluate(model, data_loader, device, criterion, length, outdir, epoch, mode):
+def evaluate(model, data_loader, device, criterion, length, outdir, epoch, binary, mode):
     model.eval()
     preds = torch.tensor([], dtype=torch.float32).to(device)
     truth = torch.tensor([], dtype=torch.float32).to(device)
 
+    total_loss = 0
+    correct = 0
+    total_correct = 0
+    count = 0
+    total_count = 0
+
     with torch.no_grad():
-        for i, data in tqdm(enumerate(data_loader)):
-            inputs, labels, not_earth, fname = (
-                data['X'].to(device), data['y'].to(device), 
-                data['not_earth'].to(device), data['fname']
-            )
+        with tqdm(enumerate(data_loader)) as tq:
+            for i, data in tq:
+                inputs, labels, not_earth, fname = (
+                    data['X'].to(device), data['y'].to(device), 
+                    data['not_earth'].to(device), data['fname']
+                )
 
-            outputs = unet(inputs)
+                outputs = unet(inputs)
 
-            not_earth = not_earth.reshape(length)
-            flat_outputs = outputs.reshape(length)[not_earth]
-            flat_labels = labels.reshape(length)[not_earth]
+                loss = criterion(outputs[not_earth], labels[not_earth]).item()
+                total_loss += loss
 
-            preds = torch.cat((preds, flat_outputs))
-            truth = torch.cat((truth, flat_labels))
+                batch_size = labels.size(0)
+                width = labels.size(2)
+                height = labels.size(3)
+                count = batch_size * width * height
+                total_count += count
 
-            if (mode == 'test') or (i == 0):
-                if mode == 'val':
-                    num_batch = 1
+                if binary:
+                    threshold_outputs = torch.where(outputs > 0.5, 1, 0)
+                    correct = (threshold_outputs == labels[:, 0]).sum().item()
                 else:
-                    num_batch = outputs.shape[0]
-                for b in range(num_batch):
-                    preds_np = outputs[b].detach().cpu().numpy().squeeze()
-                    truth_np = labels[b].detach().cpu().numpy().squeeze()
+                    _, outputs = outputs.max(1) # choose the most likely class
+                    correct = (outputs == labels[:, 0]).sum().item()
+                total_correct += correct
 
-                    plot_comparison(
-                        preds=preds_np,
-                        truth=truth_np, 
-                        file=os.path.join(outdir, f'{fname[b]}.png'),
-                        epoch=epoch
-                    )
+                if (mode == 'test') or (i == 0):
+                    if mode == 'val':
+                        num_plots = 1
+                    else:
+                        num_plots = batch_size
+                    for n in range(num_plots):
+                        preds_np = outputs[n].detach().cpu().numpy().squeeze()
+                        truth_np = labels[n, 0].detach().cpu().numpy().squeeze()
 
-                    results = {
-                        'outputs': preds_np,
-                        'labels': truth_np
-                    }
-                    np.savez(os.path.join(outdir, f'{fname[b]}.npz'), **results)
-    
-    loss = criterion(preds, truth)
-    return loss.item()
+                        plot_comparison(
+                            preds=preds_np,
+                            truth=truth_np, 
+                            file=os.path.join(outdir, f'{fname[n]}.png'),
+                            epoch=epoch
+                        )
+
+                        results = {
+                            'outputs': preds_np,
+                            'labels': truth_np
+                        }
+                        np.savez(os.path.join(outdir, f'{fname[n]}.npz'), **results)
+
+                tq.set_postfix({
+                    'Loss': '%.7f' % (loss / count),
+                    'Accuracy': '%.7f' % (correct / count),
+                })
+
+    return total_loss / total_count
 
 
 if __name__ == '__main__':
@@ -149,7 +190,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('-i', '--indir', required=True, type=str)
     arg_parser.add_argument('-o', '--outdir', required=True, type=str)
     arg_parser.add_argument('-f', '--file-fraction', default=1.0, type=float)
-    arg_parser.add_argument('-d', '--data-splits', default=[0.8, 0.1, 0.1], nargs='+')
+    arg_parser.add_argument('-d', '--data-splits', default=[0.8, 0.1, 0.1], nargs='+', type=float)
     arg_parser.add_argument('-e', '--epochs', default=10, type=int)
     arg_parser.add_argument('-b', '--batch-size', default=1, type=int)
     arg_parser.add_argument('-l', '--learning-rate', default=1.e-5, type=float)
@@ -187,15 +228,16 @@ if __name__ == '__main__':
         features += ['agyrotropy']
     print(len(features), 'features:', features)
 
-    length = args.batch_size * args.num_classes * args.width * args.height   
+    length = args.batch_size * args.num_classes * args.width * args.height
+    binary = args.num_classes == 1
 
-    train_dataset = NpzDataset(train_files, features, args.normalize, args.standardize)
+    train_dataset = NpzDataset(train_files, features, args.normalize, args.standardize, binary)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True)
 
-    val_dataset = NpzDataset(val_files, features, args.normalize, args.standardize)
+    val_dataset = NpzDataset(val_files, features, args.normalize, args.standardize, binary)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True)
 
-    test_dataset = NpzDataset(test_files, features, args.normalize, args.standardize)
+    test_dataset = NpzDataset(test_files, features, args.normalize, args.standardize, binary)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True)
 
     unet = UNet(
@@ -218,16 +260,16 @@ if __name__ == '__main__':
     print('device:', device)
     unet.to(device)
 
-    criterion = torch.nn.BCELoss()
+    criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5, threshold=1.e-5, verbose=True
     )
-    early_stopping = EarlyStopping()
+    early_stopping = EarlyStopping(patience=10, min_delta=0)
 
-    best_model, best_epoch, last_epoch, lr_reduction, train_losses, val_losses = train(
+    best_model, best_epoch, last_epoch, lr_history, train_losses, val_losses = train(
         unet, train_loader, device, criterion, optimizer, scheduler, early_stopping, 
-        length, val_loader, args.epochs, args.learning_rate, args.outdir
+        length, val_loader, args.epochs, args.learning_rate, binary, args.outdir
     )
     print('Finished training!')
 
@@ -239,7 +281,7 @@ if __name__ == '__main__':
         pass
     test_loss = evaluate(
         best_model, test_loader, device, criterion, 
-        length, test_dir, args.epochs, 'test'
+        length, test_dir, best_epoch, binary, mode='test'
     )
     print('Test loss:', test_loss)
 
@@ -253,7 +295,7 @@ if __name__ == '__main__':
                 'test_loss': test_loss,
                 'last_epoch': last_epoch,
                 'best_epoch': best_epoch,
-                'lr_reduction': lr_reduction,
+                'lr_history': lr_history,
                 'train_files': train_files,
                 'val_files': val_files,
                 'test_files': test_files,

@@ -36,22 +36,13 @@ def euclidian(x, y, z):
     return np.sqrt(x**2 + y**2 + z**2)
 
 
-class EarlyStopping():
-    def __init__(self, patience=10, min_delta=0):
-        self.patience = patience
-        self.min_delta = min_delta
-        self.counter = 0
-        self.best_loss = None
-        self.early_stop = False
-    def __call__(self, val_loss):
-        if self.best_loss == None:
-            self.best_loss = val_loss
-        elif self.best_loss - val_loss > self.min_delta:
-            self.best_loss = val_loss
-            self.counter = 0
-        elif self.best_loss - val_loss <= self.min_delta:
-            self.counter += 1
-            print(f'Early stopping counter {self.counter} of {self.patience}')
-            if self.counter >= self.patience:
-                print('Early stopping')
-                self.early_stop = True
+def split_data(files, file_fraction, data_splits):
+    num_files = file_fraction * len(files)
+    train_split, val_split, test_split = data_splits
+    train_index = int(train_split * num_files)
+    val_index = train_index + int(val_split * num_files)
+    test_index = val_index + int(test_split * num_files)
+    train_files = files[:train_index]
+    val_files = files[train_index:val_index]
+    test_files = files[val_index:test_index]
+    return train_files, val_files, test_files

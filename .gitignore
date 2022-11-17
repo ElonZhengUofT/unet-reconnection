@@ -1,3 +1,6 @@
 __pycache__/
-misc/
-data/
+/misc
+/data
+/results
+/sample/**/*.pt
+/sample/results/**/*.npz

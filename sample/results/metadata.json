@@ -1,0 +1,67 @@
+{
+  "args": {
+    "indir": "sample/data",
+    "outdir": "sample/results",
+    "file_fraction": 1.0,
+    "data_splits": [
+      0.6,
+      0.2,
+      0.2
+    ],
+    "epochs": 5,
+    "batch_size": 1,
+    "learning_rate": 1e-05,
+    "num_classes": 1,
+    "height": 344,
+    "width": 620,
+    "normalize": true,
+    "standardize": false,
+    "gpus": [
+      "0",
+      "1"
+    ],
+    "velocity": false,
+    "rho": false,
+    "anisotropy": false,
+    "agyrotropy": false
+  },
+  "features": [
+    "Bx",
+    "By",
+    "Bz",
+    "Ex",
+    "Ey",
+    "Ez"
+  ],
+  "train_losses": [
+    157.56076049804688,
+    157.55709838867188,
+    157.55343627929688,
+    157.54977416992188,
+    157.5460968017578
+  ],
+  "val_losses": [
+    0.0007387367300046448,
+    0.0007387190587701247,
+    0.0007387015306225238,
+    0.0007386840740183825,
+    0.000738666474327322
+  ],
+  "test_loss": 0.0006818526683672871,
+  "last_epoch": 5,
+  "best_epoch": 5,
+  "lr_history": {
+    "0": 1e-05
+  },
+  "train_files": [
+    "sample/data/3604.npz",
+    "sample/data/3603.npz",
+    "sample/data/3602.npz"
+  ],
+  "val_files": [
+    "sample/data/3601.npz"
+  ],
+  "test_files": [
+    "sample/data/3600.npz"
+  ]
+}
