@@ -29,7 +29,7 @@ docker start -i <container id>
 ## Train
 
 ```
-train.py -i sample/data --epochs 5 --gpus 0 1 --normalize --data-splits 0.6 0.2 0.2 -o sample/results
+train.py -i sample/data --epochs 5 --gpus 12 13 --normalize --data-splits 0.6 0.2 0.2 -o sample/results
 ```
 
 ## Plot
