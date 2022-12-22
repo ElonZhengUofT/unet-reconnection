@@ -200,6 +200,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('-n', '--normalize', action='store_true')
     arg_parser.add_argument('-s', '--standardize', action='store_true')
     arg_parser.add_argument('-g', '--gpus', nargs='+', help='GPUs to run on in the form 0 1 etc.')
+    arg_parser.add_argument('-w', '--num-workers', default=0, type=int)
     arg_parser.add_argument('--velocity', action='store_true')
     arg_parser.add_argument('--rho', action='store_true')
     arg_parser.add_argument('--anisotropy', action='store_true')
@@ -232,13 +233,13 @@ if __name__ == '__main__':
     binary = args.num_classes == 1
 
     train_dataset = NpzDataset(train_files, features, args.normalize, args.standardize, binary)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
 
     val_dataset = NpzDataset(val_files, features, args.normalize, args.standardize, binary)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
 
     test_dataset = NpzDataset(test_files, features, args.normalize, args.standardize, binary)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
 
     unet = UNet(
         enc_chs=(len(features), 64, 128, 256),
@@ -260,7 +261,10 @@ if __name__ == '__main__':
     print('device:', device)
     unet.to(device)
 
-    criterion = torch.nn.CrossEntropyLoss()
+    if args.num_classes == 1:
+        criterion = torch.nn.BCELoss()
+    else:
+        criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5, threshold=1.e-5, verbose=True
