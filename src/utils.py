@@ -2,16 +2,30 @@ import torch
 import numpy as np
 
 
-def iou_score(target, prediction):
+def iou_score(prediction, target):
     if torch.is_tensor(target) and torch.is_tensor(prediction):
         intersection = torch.logical_and(target, prediction)
         union = torch.logical_or(target, prediction)
-        iou_score = torch.sum(intersection) / torch.sum(union)
+        iou_score = torch.sum(intersection) / torch.sum(union).item()
     else:
         intersection = np.logical_and(target, prediction)
         union = np.logical_or(target, prediction)
         iou_score = np.sum(intersection) / np.sum(union)
-    return iou_score.item()
+    return iou_score
+
+
+def f_beta(precision, recall, beta):
+    numerator = (1 + beta**2) * precision * recall
+    denominator = beta**2 * precision + recall
+    return np.divide(numerator, denominator, out=np.zeros_like(denominator), where=(denominator != 0))
+
+
+def pick_best_threshold(precision, recall, thresholds, beta):
+    f_scores = f_beta(precision, recall, beta)
+    max_f_score = np.max(f_scores)
+    max_f_index = np.argmax(f_scores)
+    max_f_thresh = thresholds[max_f_index]
+    return max_f_score, max_f_index, max_f_thresh
 
 
 def normalize(name, feature, norms):

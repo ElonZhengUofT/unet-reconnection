@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import numpy as np
 from glob import glob
-from src.utils import iou_score
+import src.utils as utils
+from src.utils import iou_score, pick_best_threshold
 from sklearn import metrics
 from pathlib import Path
 import argparse
 import json
 import gif
 import os
+import sys
 
 
 def plot_reconnection_points(file):
@@ -34,6 +37,8 @@ def plot_reconnection_points(file):
     fig.savefig('reconnection_points.png', bbox_inches='tight')
     plt.close()
 
+    return np.argmin(np.abs(xx)) # center of earth x coord
+
 
 @gif.frame
 def plot_comparison(preds, truth, file, epoch):
@@ -54,25 +59,18 @@ def plot_comparison(preds, truth, file, epoch):
 
 
 def plot_loss(train_losses, val_losses, lr_history, outdir):
-    x = range(2, len(train_losses) + 1)
-    plt.plot(x, train_losses[1:], label='Training loss')
-    plt.plot(x, val_losses[1:], label='Validation loss')
+    x = range(3, len(train_losses) + 1)
+    plt.plot(x, train_losses[2:], label='Training loss')
+    plt.plot(x, val_losses[2:], label='Validation loss')
 
-    ymin, ymax = plt.gca().get_ylim()
-    plt.vlines(lr_history[1:], ymin=ymin, ymax=ymax, ls='dashed', lw=0.8, colors='gray')
+    if lr_history:
+        ymin, ymax = plt.gca().get_ylim()
+        plt.vlines(lr_history[1:], ymin=ymin, ymax=ymax, ls='dashed', lw=0.8, colors='gray')
 
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
     plt.legend()
     plt.savefig(os.path.join(outdir, 'loss_zoom.png'))
-    plt.close()
-
-
-def plot_iou_score(epochs, iou_scores, outdir):
-    plt.plot(range(epochs), iou_scores)
-    plt.xlabel('Epoch')
-    plt.ylabel('IoU Score')
-    plt.savefig(os.path.join(outdir, 'iou_score.png'))
     plt.close()
 
 
@@ -91,41 +89,186 @@ def plot_roc(preds, truth, outdir):
     plt.close()
 
 
+def plot_precision_recall(
+        precision, recall, 
+        max_f1_score, max_f1_index, max_f1_thresh, 
+        max_f2_score, max_f2_index, max_f2_thresh, 
+        outdir
+    ):
+    plt.title('Precision Recall')
+    plt.plot(recall, precision, marker='.', markersize=2, label='U-Net')
+    plt.plot(
+        recall[max_f1_index], precision[max_f1_index], marker='.', color='tab:green', markersize=12, 
+        label=f'Max F1 = {max_f1_score:.4f}\nThreshold = {max_f1_thresh:.4f}'
+    )
+    plt.plot(
+        recall[max_f2_index], precision[max_f2_index], marker='^', color='tab:red', markersize=7, 
+        label=f'Max F2 = {max_f2_score:.4f}\nThreshold = {max_f2_thresh:.4f}'
+    )
+    plt.legend()
+    plt.minorticks_on()
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.tick_params(axis='both', which='both', direction='in')
+    plt.savefig(os.path.join(outdir, 'precision_recall.png'))
+    plt.close()
+
+
+def plot_thresholds(precision, recall, thresholds, max_f1_thresh, max_f2_thresh, outdir):
+    plt.title('Precision & Recall with Different Thresholds')
+    plt.plot(thresholds, precision[:-1], label='Precision')
+    plt.plot(thresholds, recall[:-1], label='Recall')
+    # plt.plot(thresholds[::10], [utils.iou_score(np.where(preds < t, 0, 1), truth) for t in thresholds[::10]], label='IoU')
+    # ymin, ymax = plt.gca().get_ylim()
+    plt.axvline(max_f1_thresh, ymin=0.04, ymax=0.96, ls='--', c='gray', label='Max F1 Threshold')
+    plt.axvline(max_f2_thresh, ymin=0.04, ymax=0.96, ls='-.', c='black', label='Max F2 Threshold')
+    plt.legend()
+    plt.minorticks_on()
+    plt.ylabel('Score')
+    plt.xlabel('Decision Threshold')
+    plt.tick_params(axis='both', which='both', direction='in')
+    plt.savefig(os.path.join(outdir, 'thresholds.png'))
+    plt.close()
+
+
+def plot_confusion_matrix(binary_preds, truth, score, outdir):
+    plt.title('Confusion Matrix')
+    cm = metrics.confusion_matrix(truth, binary_preds).T
+    plt.imshow(cm, norm=mpl.colors.LogNorm())
+    plt.xticks([0, 1])
+    plt.yticks([0, 1])
+    for i in [0, 1]:
+        for j in [0, 1]:
+            text_color = 'yellow' if cm[i, j] < np.max(cm) / 2 else 'black'
+            plt.annotate(cm[i, j], (i, j), va='center', ha='center', color=text_color)
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    plt.colorbar()
+    plt.savefig(os.path.join(outdir, f'confusion_matrix_{score}.png'))
+    plt.close()
+
+
+def evaluate_classifier(preds, truth):
+    tn, fp, fn, tp = metrics.confusion_matrix(truth, preds).ravel()
+    accuracy = (tp + tn) / (tp + fp + fn + tn)
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    auc_roc = metrics.roc_auc_score(y_score=preds, y_true=truth)
+    iou = utils.iou_score(preds, truth)
+
+    return {
+        'True Positive' : int(tp),
+        'True Negative' : int(tn),
+        'False Positive': int(fp),
+        'False Negative': int(fn),
+        'Accuracy' : accuracy,
+        'Precision': precision,
+        'Recall/Sensitivity' : recall,
+        'Specificity': tn / (fp + tn),
+        'AUC ROC': auc_roc,
+        'IoU': iou
+    }
+
+
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-d', '--dir', required=True, type=str)
+    arg_parser.add_argument('-g', '--gif', action='store_true')
     args = arg_parser.parse_args()
-
+    
     # Read metadata
     with open(os.path.join(args.dir, 'metadata.json'), 'r') as f:
         metadata = json.load(f)
 
-    # Plot anisotropy with reconnection points
-    plot_reconnection_points('sample/data/3600.npz')
-
     # Plot loss curve
-    lr_history = [int(epoch) for epoch in metadata['lr_history'].keys()]
+    if 'lr_history' in metadata.keys():
+        lr_history = [int(epoch) for epoch in metadata['lr_history'].keys()]
+    else:
+        lr_history = None
     plot_loss(metadata['train_losses'], metadata['val_losses'], lr_history, args.dir)
 
-    # Create GIF, plot IoU progression
-    frames = []
-    iou_scores = []
-    fname = Path(metadata['val_files'][0]).stem
-    for i in range(1, metadata['last_epoch'] + 1):
-        data = np.load(os.path.join(args.dir, 'val', str(i), f'{fname}.npz'))
-        preds, truth = data['outputs'], data['labels']
-        iou_scores.append(iou_score(truth, preds))
-        frame = plot_comparison(preds, truth, os.path.join(args.dir, 'val', str(i), f'{fname}.png'), i)
-        frames.append(frame)
-    gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
-    plot_iou_score(metadata['last_epoch'], iou_scores, args.dir)
+    # Plot anisotropy with reconnection points
+    earth_center_x = plot_reconnection_points('sample/data/3600.npz')
 
-    # Plot ROC curve
-    all_preds = np.array([])
-    all_truth = np.array([])
-    for test_file in glob(os.path.join(args.dir, 'test', '*.npz')):
+    if args.gif:
+        # Create animation of validation predictions
+        frames = []
+        fname = Path(metadata['val_files'][0]).stem
+        for i in range(1, metadata['last_epoch'] + 1):
+            data = np.load(os.path.join(args.dir, 'val', str(i), f'{fname}.npz'))
+            preds, truth = data['outputs'], data['labels']
+            frame = plot_comparison(preds, truth, os.path.join(args.dir, 'val', str(i), f'{fname}.png'), i)
+            frames.append(frame)
+        gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
+
+    # Load test predictions
+    test_list = glob(os.path.join(args.dir, 'test', '*.npz'))
+    num_test_files = len(test_list)
+    all_preds = np.zeros((num_test_files, metadata['args']['height'], metadata['args']['width']))
+    all_truth = np.zeros((num_test_files, metadata['args']['height'], metadata['args']['width']))
+    for i, test_file in enumerate(test_list):
         data = np.load(test_file)
         preds, truth = data['outputs'], data['labels']
-        all_preds = np.concatenate([all_preds, preds.ravel()])
-        all_truth = np.concatenate([all_truth, truth.ravel()])
-    plot_roc(all_preds, all_truth, args.dir)
+        all_preds[i] = preds
+        all_truth[i] = truth
+
+    nightside_preds = all_preds[:,:,:earth_center_x]
+    nightside_truth = all_truth[:,:,:earth_center_x]
+
+    dayside_preds = all_preds[:,:,earth_center_x:]
+    dayside_truth = all_truth[:,:,earth_center_x:]
+
+    f1 = {}
+    f2 = {}
+    for preds, truth, side in [
+        (all_preds.ravel(), all_truth.ravel(), 'both_sides'),
+        (nightside_preds.ravel(), nightside_truth.ravel(), 'nightside'),
+        (dayside_preds.ravel(), dayside_truth.ravel(), 'dayside')
+    ]:
+        side_dir = os.path.join(args.dir, side)
+        os.makedirs(side_dir, exist_ok=True)
+
+        precision, recall, thresholds = metrics.precision_recall_curve(truth, preds)
+
+        max_f1_score, max_f1_index, max_f1_thresh = utils.pick_best_threshold(precision, recall, thresholds, 1)
+        f1[side] = {'score': max_f1_score, 'threshold': max_f1_thresh}
+        binary_preds = np.where(preds < max_f1_thresh, 0, 1)
+        plot_confusion_matrix(binary_preds, truth, 'f1', side_dir)
+
+        max_f2_score, max_f2_index, max_f2_thresh = utils.pick_best_threshold(precision, recall, thresholds, 2)
+        f2[side] = {'score': max_f2_score, 'threshold': max_f2_thresh}
+        binary_preds = np.where(preds < max_f2_thresh, 0, 1)
+        plot_confusion_matrix(binary_preds, truth, 'f2', side_dir)
+
+        plot_precision_recall(
+            precision, recall, 
+            max_f1_score, max_f1_index, max_f1_thresh, 
+            max_f2_score, max_f2_index, max_f2_thresh, 
+            side_dir
+        )
+        plot_thresholds(precision, recall, thresholds, max_f1_thresh, max_f2_thresh, side_dir)
+
+    all_binary_preds = np.concatenate((
+        np.where(nightside_preds < f1['nightside']['threshold'], 0, 1),
+        np.where(dayside_preds < f1['dayside']['threshold'], 0, 1)),
+        axis=2
+    )
+    plot_confusion_matrix(all_binary_preds.ravel(), all_truth.ravel(), 'f1', args.dir)
+
+    all_binary_preds = np.concatenate((
+        np.where(nightside_preds < f2['nightside']['threshold'], 0, 1),
+        np.where(dayside_preds < f2['dayside']['threshold'], 0, 1)),
+        axis=2
+    )
+    plot_confusion_matrix(all_binary_preds.ravel(), all_truth.ravel(), 'f2', args.dir)
+    
+    # Plot ROC curve
+    plot_roc(all_preds.ravel(), all_truth.ravel(), args.dir)
+
+    metrics = evaluate_classifier(all_binary_preds.ravel(), all_truth.ravel())
+    metrics['F1'] = f1
+    metrics['F2'] = f2
+    print(json.dumps(metrics, indent=2))
+
+    with open(os.path.join(args.dir, 'metrics.json'), 'w') as f:
+        json.dump(metrics, fp=f, indent=2)
