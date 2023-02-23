@@ -71,7 +71,10 @@ def train(
         print('Validation loss:', val_loss)
 
         if val_loss < best_val_loss:
-            torch.save(model.module.state_dict(), f=os.path.join(outdir, 'unet_best_epoch.pt'))
+            if args.gpus:
+                torch.save(model.module.state_dict(), f=os.path.join(outdir, 'unet_best_epoch.pt'))
+            else:
+                torch.save(model.state_dict(), f=os.path.join(outdir, 'unet_best_epoch.pt'))
             torch.save(optimizer.state_dict(), f=os.path.join(outdir, 'optimizer_best_epoch.pt'))
             best_model = model
             best_epoch = epoch
@@ -87,11 +90,18 @@ def train(
             lr_history[lr_change_epoch] = last_lr
             
             print('Restoring best model weights.')
-            model.module.load_state_dict(
-                torch.load(
-                    os.path.join(outdir, 'unet_best_epoch.pt'), map_location=device
+            if args.gpus:
+                model.module.load_state_dict(
+                    torch.load(
+                        os.path.join(outdir, 'unet_best_epoch.pt'), map_location=device
+                    )
                 )
-            )
+            else:
+                model.load_state_dict(
+                    torch.load(
+                        os.path.join(outdir, 'unet_best_epoch.pt'), map_location=device
+                    )
+                )
             optimizer.load_state_dict(
                 torch.load(
                     os.path.join(outdir, 'optimizer_best_epoch.pt'), map_location='cpu'
