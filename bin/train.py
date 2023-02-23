@@ -10,13 +10,12 @@ from plot import plot_comparison
 import numpy as np
 import argparse
 import json
-import shutil
 import os
 
 
 def train(
         model, train_loader, device, criterion, optimizer, scheduler, 
-        early_stopping, length, val_loader, epochs, lr, binary, outdir
+        early_stopping, val_loader, epochs, lr, binary, outdir
     ):
 
     train_losses = []
@@ -24,11 +23,10 @@ def train(
     lr_change_epoch = 0
     lr_history = {lr_change_epoch: lr}
     best_val_loss = np.inf
-
-    total_count = 0
-    total_loss = 0
-
+    
     for epoch in range(1, epochs + 1):
+        total_count = 0
+        total_loss = 0
         print('Epoch:', epoch)
         with tqdm(train_loader) as tq:
             for data in tq:
@@ -52,7 +50,7 @@ def train(
                 loss = loss.item()
                 total_loss += loss
 
-                count = labels.size(0) * labels.size(2) * labels.size(3)
+                count = labels.size(0)
                 total_count += count
 
                 tq.set_postfix({
@@ -63,29 +61,18 @@ def train(
         train_losses.append(total_loss / total_count)
 
         val_dir = os.path.join(outdir, 'val', str(epoch))
-        try:
-            os.makedirs(val_dir)
-        except FileExistsError:
-            pass
+        os.makedirs(val_dir, exist_ok=True)
+
         val_loss = evaluate(
             model, val_loader, device, criterion, 
-            length, val_dir, epoch, binary, mode='val'
+            val_dir, epoch, binary, mode='val'
         )
         val_losses.append(val_loss)
         print('Validation loss:', val_loss)
 
-        torch.save(model.module.state_dict(), f=os.path.join(val_dir, 'unet.pt'))
-        torch.save(optimizer.state_dict(), f=os.path.join(val_dir, 'optimizer.pt'))
-
         if val_loss < best_val_loss:
-            shutil.copy2(
-                os.path.join(val_dir, 'unet.pt'), 
-                os.path.join(outdir, 'unet_best_epoch.pt')
-            )
-            shutil.copy2(
-                os.path.join(val_dir, 'optimizer.pt'), 
-                os.path.join(outdir, 'optimizer_best_epoch.pt')
-            )
+            torch.save(model.module.state_dict(), f=os.path.join(outdir, 'unet_best_epoch.pt'))
+            torch.save(optimizer.state_dict(), f=os.path.join(outdir, 'optimizer_best_epoch.pt'))
             best_model = model
             best_epoch = epoch
             best_val_loss = val_loss
@@ -117,10 +104,8 @@ def train(
     return best_model, best_epoch, epoch, lr_history, train_losses, val_losses
 
 
-def evaluate(model, data_loader, device, criterion, length, outdir, epoch, binary, mode):
+def evaluate(model, data_loader, device, criterion, outdir, epoch, binary, mode):
     model.eval()
-    preds = torch.tensor([], dtype=torch.float32).to(device)
-    truth = torch.tensor([], dtype=torch.float32).to(device)
 
     total_loss = 0
     correct = 0
@@ -136,15 +121,16 @@ def evaluate(model, data_loader, device, criterion, length, outdir, epoch, binar
                     data['not_earth'].to(device), data['fname']
                 )
 
-                outputs = unet(inputs)
+                outputs = model(inputs)
 
                 loss = criterion(outputs[not_earth], labels[not_earth]).item()
+                
                 total_loss += loss
 
                 batch_size = labels.size(0)
                 width = labels.size(2)
                 height = labels.size(3)
-                count = batch_size * width * height
+                count = batch_size
                 total_count += count
 
                 if binary:
@@ -207,10 +193,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--agyrotropy', action='store_true')
     args = arg_parser.parse_args()
 
-    try:
-        os.makedirs(args.outdir)
-    except FileExistsError:
-        pass
+    os.makedirs(args.outdir, exist_ok=True)
 
     files = glob(os.path.join(args.indir, '*.npz'))
     train_files, val_files, test_files = split_data(files, args.file_fraction, args.data_splits)
@@ -229,7 +212,6 @@ if __name__ == '__main__':
         features += ['agyrotropy']
     print(len(features), 'features:', features)
 
-    length = args.batch_size * args.num_classes * args.width * args.height
     binary = args.num_classes == 1
 
     train_dataset = NpzDataset(train_files, features, args.normalize, args.standardize, binary)
@@ -273,19 +255,17 @@ if __name__ == '__main__':
 
     best_model, best_epoch, last_epoch, lr_history, train_losses, val_losses = train(
         unet, train_loader, device, criterion, optimizer, scheduler, early_stopping, 
-        length, val_loader, args.epochs, args.learning_rate, binary, args.outdir
+        val_loader, args.epochs, args.learning_rate, binary, args.outdir
     )
     print('Finished training!')
 
     print('Evaluating best model from epoch', best_epoch)
     test_dir = os.path.join(args.outdir, 'test')
-    try:
-        os.makedirs(test_dir)
-    except FileExistsError:
-        pass
+    os.makedirs(test_dir, exist_ok=True)
+    
     test_loss = evaluate(
         best_model, test_loader, device, criterion, 
-        length, test_dir, best_epoch, binary, mode='test'
+        test_dir, best_epoch, binary, mode='test'
     )
     print('Test loss:', test_loss)
 
