@@ -26,10 +26,25 @@ Re-enter stopped container
 docker start -i <container id>
 ```
 
+## Slurm
+
+```
+. ./env.sh
+```
+
+```
+sinteractive --account project_2004522 --cores 1 --time 01:00:00 --mem 4G --tmp 100
+```
+
+```
+bash steer.sh -t train -d sample
+bash steer.sh -t plot -d sample
+```
+
 ## Train
 
 ```
-train.py -i sample/data --epochs 5 --gpus 12 13 --normalize --data-splits 0.6 0.2 0.2 -o sample/results
+train.py -i sample/data --epochs 5 --normalize --data-splits 0.6 0.2 0.2 -o sample/results
 ```
 
 ## Plot

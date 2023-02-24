@@ -7,6 +7,7 @@ from src.model import UNet
 from src.callbacks import EarlyStopping
 from src.utils import split_data
 from plot import plot_comparison
+from ptflops import get_model_complexity_info
 import numpy as np
 import argparse
 import json
@@ -149,7 +150,6 @@ def evaluate(model, data_loader, device, criterion, outdir, epoch, binary, mode)
                 else:
                     _, outputs = outputs.max(1) # choose the most likely class
                     correct = (outputs == labels[:, 0]).sum().item()
-                total_correct += correct
 
                 if (mode == 'test') or (i == 0):
                     if mode == 'val':
@@ -175,7 +175,7 @@ def evaluate(model, data_loader, device, criterion, outdir, epoch, binary, mode)
 
                 tq.set_postfix({
                     'Loss': '%.7f' % (loss / count),
-                    'Accuracy': '%.7f' % (correct / count),
+                    'Accuracy': '%.7f' % (correct / (batch_size * width * height)),
                 })
 
     return total_loss / total_count
@@ -191,6 +191,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('-b', '--batch-size', default=1, type=int)
     arg_parser.add_argument('-l', '--learning-rate', default=1.e-5, type=float)
     arg_parser.add_argument('-c', '--num-classes', default=1, type=int)
+    arg_parser.add_argument('-k', '--kernel-size', default=3, type=int)
     arg_parser.add_argument('-y', '--height', default=344, type=int)
     arg_parser.add_argument('-x', '--width', default=620, type=int)
     arg_parser.add_argument('-n', '--normalize', action='store_true')
@@ -238,9 +239,16 @@ if __name__ == '__main__':
         dec_chs=(256, 128, 64),
         num_class=args.num_classes,
         retain_dim=True,
-        out_sz=(args.height, args.width)
+        out_sz=(args.height, args.width),
+        kernel_size=args.kernel_size
     )
-    print(unet)
+    
+    macs, params = get_model_complexity_info(
+        unet, (len(features), args.height, args.width), 
+        as_strings=True, print_per_layer_stat=True, verbose=True
+    )
+    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
     if args.gpus:
         assert torch.cuda.is_available()

@@ -94,13 +94,13 @@ if __name__ == '__main__':
         dec_chs=(256, 128, 64),
         num_class=meta_args['num_classes'],
         retain_dim=True,
-        out_sz=(meta_args['height'], meta_args['width'])
+        out_sz=(meta_args['height'], meta_args['width']),
+        kernel_size=meta_args['kernel_size']
     )
 
     macs, params = get_model_complexity_info(
         unet, (len(features), meta_args['height'], meta_args['width']), 
-        as_strings=True,
-        print_per_layer_stat=True, verbose=True
+        as_strings=True, print_per_layer_stat=True, verbose=True
     )
     print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
     print('{:<30}  {:<8}'.format('Number of parameters: ', params))

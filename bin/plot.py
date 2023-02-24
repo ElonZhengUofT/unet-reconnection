@@ -59,9 +59,14 @@ def plot_comparison(preds, truth, file, epoch):
 
 
 def plot_loss(train_losses, val_losses, lr_history, outdir):
-    x = range(3, len(train_losses) + 1)
-    plt.plot(x, train_losses[2:], label='Training loss')
-    plt.plot(x, val_losses[2:], label='Validation loss')
+    x = range(4, len(train_losses) + 1)
+    
+    fmt = mpl.ticker.ScalarFormatter(useMathText=True)
+    fmt.set_powerlimits((-3, 3))
+    plt.gca().yaxis.set_major_formatter(fmt)
+    
+    plt.plot(x, train_losses[3:], label='Training loss')
+    plt.plot(x, val_losses[3:], label='Validation loss')
 
     if lr_history:
         ymin, ymax = plt.gca().get_ylim()
