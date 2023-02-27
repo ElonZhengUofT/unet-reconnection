@@ -28,17 +28,19 @@ docker start -i <container id>
 
 ## Slurm
 
+Add executables to path
 ```
 . ./env.sh
 ```
 
+To train all models (note that task can be train or plot, and project refers to CSC project id)
 ```
-sinteractive --account project_2004522 --cores 1 --time 01:00:00 --mem 4G --tmp 100
+./steer.sh -t <TASK> -d <DIR> -p <PROJECT>
 ```
 
+Compare loss and number of epochs between all runs
 ```
-bash steer.sh -t train -d sample
-bash steer.sh -t plot -d sample
+analyze_runs.py
 ```
 
 ## Train
