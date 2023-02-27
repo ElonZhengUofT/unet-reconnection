@@ -3,6 +3,11 @@ __pycache__/
 /data
 results/**/val/
 results/**/test/
-results/**/*.pt
+results/custom-none-*/*.pt
+results/raw-none-*/*.pt
+results/*-9/*.pt
+results/*-7/*.pt
+results/*-5/*.pt
+results/**/optimizer_best_epoch.pt
 /slurm
 /sample/results/**/*.npz
