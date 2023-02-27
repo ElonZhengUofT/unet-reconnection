@@ -1,6 +1,7 @@
 __pycache__/
 /misc
 /data
-/results
-/sample/**/*.pt
+results/**/val/
+results/**/test/
+/slurm
 /sample/results/**/*.npz

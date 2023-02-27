@@ -36,11 +36,12 @@ def plot_reconnection_points(file):
 
     fig.savefig('reconnection_points.png', bbox_inches='tight')
     plt.close()
+    
+    earth_center_x = np.argmin(np.abs(xx)) # center of earth x coord
 
-    return np.argmin(np.abs(xx)) # center of earth x coord
+    return earth_center_x, data['xmin'], data['xmax'], data['zmin'], data['zmax']
 
 
-@gif.frame
 def plot_comparison(preds, truth, file, epoch):
     fig = plt.figure(figsize=(12, 8))
 
@@ -56,6 +57,46 @@ def plot_comparison(preds, truth, file, epoch):
     ax2.set_title('Truth')
 
     plt.savefig(file)
+
+
+def generate_geom_seq(num_epochs):
+    seq = [1]
+    i = 1
+    step = 1
+    while True:
+        if i % 10 == 0:
+            step += 1
+        seq.append(seq[-1] + step)
+        if seq[-1] >= num_epochs:
+            break
+        i += 1
+    
+    if seq[-1] > num_epochs:
+        del seq[-1]
+
+    return seq
+
+
+@gif.frame
+def plot_gif_frame(preds, truth, epoch, xmin, xmax, zmin, zmax):
+    fig = plt.figure(figsize=(5, 3), dpi=100)
+
+    xx = np.linspace(xmin, xmax, (truth.shape[1]))
+    zz = np.linspace(zmin, zmax, (truth.shape[0]))
+
+    labeled_indices = truth.nonzero()
+    labeled_z = zz[labeled_indices[0]]
+    labeled_x = xx[labeled_indices[1]]
+
+    ax = fig.add_subplot()
+
+    c = ax.imshow(preds, extent=[xmin, xmax, zmin, zmax])
+    # ax.scatter(labeled_x, labeled_z, marker='x', color='red', s=50)
+    ax.set_title(f'Epoch {epoch}')
+    ax.set_xlabel('x/Re')
+    ax.set_ylabel('z/Re')
+    plt.tight_layout()
+    # fig.colorbar(c, ax=ax)
 
 
 def plot_loss(train_losses, val_losses, lr_history, outdir):
@@ -193,16 +234,17 @@ if __name__ == '__main__':
     plot_loss(metadata['train_losses'], metadata['val_losses'], lr_history, args.dir)
 
     # Plot anisotropy with reconnection points
-    earth_center_x = plot_reconnection_points('sample/data/3600.npz')
+    earth_center_x, xmin, xmax, zmin, zmax = plot_reconnection_points('sample/data/3600.npz')
 
     if args.gif:
         # Create animation of validation predictions
         frames = []
         fname = Path(metadata['val_files'][0]).stem
-        for i in range(1, metadata['last_epoch'] + 1):
+        sequence = generate_geom_seq(metadata['last_epoch'])
+        for i in sequence:
             data = np.load(os.path.join(args.dir, 'val', str(i), f'{fname}.npz'))
             preds, truth = data['outputs'], data['labels']
-            frame = plot_comparison(preds, truth, os.path.join(args.dir, 'val', str(i), f'{fname}.png'), i)
+            frame = plot_gif_frame(preds, truth, i, xmin, xmax, zmin, zmax)
             frames.append(frame)
         gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
 
