@@ -4,6 +4,7 @@ import json
 import torch
 import argparse
 import numpy as np
+from glob import glob
 from tqdm import tqdm
 from src.data import NpzDataset
 from src.model import UNet
@@ -62,6 +63,7 @@ def predict(model, data_loader, device, criterion, outdir):
 
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('-m', '--modeldir', required=True, type=str)
     arg_parser.add_argument('-i', '--indir', required=True, type=str)
     arg_parser.add_argument('-o', '--outdir', required=True, type=str)
     arg_parser.add_argument('-w', '--num-workers', default=0, type=int)
@@ -71,7 +73,9 @@ if __name__ == '__main__':
 
     os.makedirs(args.outdir, exist_ok=True)
 
-    with open(os.path.join(args.indir, 'metadata.json'), 'r') as f:
+    files = glob(os.path.join(args.indir, '*.npz'))
+
+    with open(os.path.join(args.modeldir, 'metadata.json'), 'r') as f:
         metadata = json.load(f)
         meta_args = metadata['args']
 
@@ -86,7 +90,7 @@ if __name__ == '__main__':
         features += ['agyrotropy']
 
     binary = meta_args['num_classes'] == 1
-    test_dataset = NpzDataset(metadata['test_files'], features, meta_args['normalize'], meta_args['standardize'], binary)
+    test_dataset = NpzDataset(files, features, meta_args['normalize'], meta_args['standardize'], binary)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
 
     unet = UNet(
@@ -119,23 +123,22 @@ if __name__ == '__main__':
         criterion = torch.nn.BCELoss()
     else:
         criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(unet.parameters(), lr=meta_args['learning_rate'])
 
     if args.gpus:
         unet.module.load_state_dict(
             torch.load(
-                os.path.join(args.indir, 'unet_best_epoch.pt'), map_location=device
+                os.path.join(args.modeldir, 'unet_best_epoch.pt'), map_location=device
             )
         )
     else:
         unet.load_state_dict(
             torch.load(
-                os.path.join(args.indir, 'unet_best_epoch.pt'), map_location=device
+                os.path.join(args.modeldir, 'unet_best_epoch.pt'), map_location=device
             )
         )
 
     test_loss, inference_times = predict(unet, test_loader, device, criterion, args.outdir)
 
-    print(inference_times[1:])
-    print('Mean inference time:', np.mean(inference_times[1:])) 
-    print('Stdev inference time:', np.std(inference_times[1:]))
+    print(inference_times)
+    print('Mean inference time:', np.mean(inference_times)) 
+    print('Stdev inference time:', np.std(inference_times))
