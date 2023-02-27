@@ -26,6 +26,12 @@ Re-enter stopped container
 docker start -i <container id>
 ```
 
+Or without Docker
+```
+. ./env.sh
+pip install -r requirements.txt
+```
+
 ## Train
 
 ```

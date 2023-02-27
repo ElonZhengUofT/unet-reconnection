@@ -1,5 +1,8 @@
-pytorch
+torch
+torchvision
 torchvision
 matplotlib
+scikit-learn
+ptflops
 tqdm
 gif
