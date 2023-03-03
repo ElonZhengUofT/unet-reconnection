@@ -51,6 +51,11 @@ This command will use the trained model in `results/raw-standardized-1` and do t
 predict.py -m results/raw-standardized-1 -i 3d-data -o 3d-results
 ```
 
+To predict and plot all models at once
+```
+./analyze_3d.sh
+```
+
 ## Slurm
 
 Add executables to path

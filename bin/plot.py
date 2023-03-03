@@ -220,33 +220,39 @@ if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-d', '--dir', required=True, type=str)
     arg_parser.add_argument('-g', '--gif', action='store_true')
+    arg_parser.add_argument('-m', '--modeldir')
     args = arg_parser.parse_args()
     
-    # Read metadata
-    with open(os.path.join(args.dir, 'metadata.json'), 'r') as f:
-        metadata = json.load(f)
-
-    # Plot loss curve
-    if 'lr_history' in metadata.keys():
-        lr_history = [int(epoch) for epoch in metadata['lr_history'].keys()]
-    else:
-        lr_history = None
-    plot_loss(metadata['train_losses'], metadata['val_losses'], lr_history, args.dir)
-
     # Plot anisotropy with reconnection points
     earth_center_x, xmin, xmax, zmin, zmax = plot_reconnection_points('sample/data/3600.npz')
 
-    if args.gif:
-        # Create animation of validation predictions
-        frames = []
-        fname = Path(metadata['val_files'][0]).stem
-        sequence = generate_geom_seq(metadata['last_epoch'])
-        for i in sequence:
-            data = np.load(os.path.join(args.dir, 'val', str(i), f'{fname}.npz'))
-            preds, truth = data['outputs'], data['labels']
-            frame = plot_gif_frame(preds, truth, i, xmin, xmax, zmin, zmax)
-            frames.append(frame)
-        gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
+    if args.modeldir:
+        # Read metadata
+        with open(os.path.join(args.modeldir, 'metadata.json'), 'r') as f:
+            metadata = json.load(f)
+    else:
+        # Read metadata
+        with open(os.path.join(args.dir, 'metadata.json'), 'r') as f:
+            metadata = json.load(f)
+
+        # Plot loss curve
+        if 'lr_history' in metadata.keys():
+            lr_history = [int(epoch) for epoch in metadata['lr_history'].keys()]
+        else:
+            lr_history = None
+        plot_loss(metadata['train_losses'], metadata['val_losses'], lr_history, args.dir)
+
+        if args.gif:
+            # Create animation of validation predictions
+            frames = []
+            fname = Path(metadata['val_files'][0]).stem
+            sequence = generate_geom_seq(metadata['last_epoch'])
+            for i in sequence:
+                data = np.load(os.path.join(args.dir, 'val', str(i), f'{fname}.npz'))
+                preds, truth = data['outputs'], data['labels']
+                frame = plot_gif_frame(preds, truth, i, xmin, xmax, zmin, zmax)
+                frames.append(frame)
+            gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
 
     # Load test predictions
     test_list = glob(os.path.join(args.dir, 'test', '*.npz'))
@@ -256,6 +262,9 @@ if __name__ == '__main__':
     for i, test_file in enumerate(test_list):
         data = np.load(test_file)
         preds, truth = data['outputs'], data['labels']
+        if args.modeldir:
+            test_plot_file = os.path.join(f'{args.dir}', 'test', Path(test_file).stem) 
+            plot_comparison(preds, truth, test_plot_file, metadata['best_epoch'])
         all_preds[i] = preds
         all_truth[i] = truth
 
