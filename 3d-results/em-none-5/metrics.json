@@ -1,0 +1,40 @@
+{
+  "True Positive": 2,
+  "True Negative": 27063,
+  "False Positive": 186215,
+  "False Negative": 0,
+  "Accuracy": 0.12689891222805702,
+  "Precision": 1.0740157987724e-05,
+  "Recall/Sensitivity": 1.0,
+  "Specificity": 0.12689072478174027,
+  "AUC ROC": 0.5634453623908702,
+  "IoU": 1.0740157987724e-05,
+  "F1": {
+    "both_sides": {
+      "score": 2.503363895234221e-05,
+      "threshold": 8.296564546483864e-10
+    },
+    "nightside": {
+      "score": 3.338145826900448e-05,
+      "threshold": 8.296564546483864e-10
+    },
+    "dayside": {
+      "score": 0.0,
+      "threshold": 0.0
+    }
+  },
+  "F2": {
+    "both_sides": {
+      "score": 6.258174740755111e-05,
+      "threshold": 8.296564546483864e-10
+    },
+    "nightside": {
+      "score": 8.344946717515207e-05,
+      "threshold": 8.296564546483864e-10
+    },
+    "dayside": {
+      "score": 0.0,
+      "threshold": 0.0
+    }
+  }
+}

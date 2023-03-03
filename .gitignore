@@ -11,3 +11,4 @@ results/*-5/*.pt
 results/**/optimizer_best_epoch.pt
 /slurm
 /sample/results/**/*.npz
+/3d-results/**/*.npz
