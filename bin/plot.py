@@ -286,6 +286,9 @@ if __name__ == '__main__':
 
         precision, recall, thresholds = metrics.precision_recall_curve(truth, preds)
 
+        d = {'precision': precision, 'recall': recall}
+        np.savez(os.path.join(side_dir, 'precision_recall.npz'), **d)
+
         max_f1_score, max_f1_index, max_f1_thresh = utils.pick_best_threshold(precision, recall, thresholds, 1)
         f1[side] = {'score': max_f1_score, 'threshold': max_f1_thresh}
         binary_preds = np.where(preds < max_f1_thresh, 0, 1)
