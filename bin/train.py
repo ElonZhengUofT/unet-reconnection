@@ -3,7 +3,8 @@ import torch
 from tqdm import tqdm
 from glob import glob
 from src.data import NpzDataset
-from src.model import UNet
+# from src.model import UNet
+from src.NewUnet import UNet
 from src.callbacks import EarlyStopping
 from src.utils import split_data
 from plot import plot_comparison
@@ -182,6 +183,8 @@ def evaluate(model, data_loader, device, criterion, outdir, epoch, binary, mode)
 
 
 if __name__ == '__main__':
+    os.environ["PYTHONPATH"] = "/content/unet-reconnection"
+
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument('-i', '--indir', required=True, type=str)
     arg_parser.add_argument('-o', '--outdir', required=True, type=str)
@@ -203,6 +206,8 @@ if __name__ == '__main__':
     arg_parser.add_argument('--anisotropy', action='store_true')
     arg_parser.add_argument('--agyrotropy', action='store_true')
     args = arg_parser.parse_args()
+
+    print("First Checkpoint")
 
     os.makedirs(args.outdir, exist_ok=True)
 
@@ -228,11 +233,14 @@ if __name__ == '__main__':
     train_dataset = NpzDataset(train_files, features, args.normalize, args.standardize, binary)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
 
+
     val_dataset = NpzDataset(val_files, features, args.normalize, args.standardize, binary)
     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
 
     test_dataset = NpzDataset(test_files, features, args.normalize, args.standardize, binary)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
+
+    print("Second Checkpoint")
 
     unet = UNet(
         enc_chs=(len(features), 64, 128, 256),
@@ -242,6 +250,8 @@ if __name__ == '__main__':
         out_sz=(args.height, args.width),
         kernel_size=args.kernel_size
     )
+
+    print("Third Checkpoint")
     
     macs, params = get_model_complexity_info(
         unet, (len(features), args.height, args.width), 
