@@ -67,7 +67,7 @@ class Up(nn.Module):
 class UNet(nn.Module):
     def __init__(self,
                  enc_chs: Tuple[int, ...] = (3, 64, 128, 256),
-                 dec_chs: Tuple[int, ...] = (256. 128, 64),
+                 dec_chs: Tuple[int, ...] = (256, 128, 64),
                  num_class: int = 1,
                  retain_dim: bool = False,
                  out_sz: Tuple[int, int] = (572, 572),
