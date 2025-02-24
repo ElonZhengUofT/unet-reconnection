@@ -289,6 +289,8 @@ if __name__ == '__main__':
     )
     early_stopping = EarlyStopping(patience=10, min_delta=0)
 
+    print('Starting training...')
+
     best_model, best_epoch, last_epoch, lr_history, train_losses, val_losses = train(
         unet, train_loader, device, criterion, optimizer, scheduler, early_stopping, 
         val_loader, args.epochs, args.learning_rate, binary, args.outdir

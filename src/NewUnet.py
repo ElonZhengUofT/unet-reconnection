@@ -26,6 +26,7 @@ class Block(nn.Module):
 class Down(nn.Module):
     def __init__(self, channels: int, kernel_size: int):
         super(Down, self).__init__()
+        print("Checkpoint 4")
         self.up_blocks = nn.ModuleList([Block(channels[i], channels[i+1],
                                               kernel_size)
                                         for i in range (len(channels)-1)])
@@ -42,6 +43,7 @@ class Down(nn.Module):
 
 class Up(nn.Module):
     def __init__(self, channels: int, kernel_size: int):
+        print("Checkpoint 5")
         super(Up, self).__init__()
         self.channels = channels
         self.up = nn.ModuleList([nn.ConvTranspose2d(channels[i], channels[i+1],
@@ -87,7 +89,9 @@ class UNet(nn.Module):
         """
         super(UNet, self).__init__()
         self.down = Down(down_chs, kernel_size)
+        print("Checkpoint 6.1")
         self.bottleneck = Block(down_chs[-1], down_chs[-1] * 2, kernel_size)
+        print("Checkpoint 6.2")
         self.up = Up(up_chs, kernel_size)
         self.head = nn.Conv2d(up_chs[-1], num_class, kernel_size=1)
         if num_class == 1:
