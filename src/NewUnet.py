@@ -39,6 +39,7 @@ class Down(nn.Module):
     def __init__(self, channels: int, kernel_size: int):
         super(Down, self).__init__()
         print("Checkpoint 4")
+        print(f"Channels in Down: {channels}")
         self.up_blocks = nn.ModuleList([Block(channels[i], channels[i+1],
                                               kernel_size)
                                         for i in range (len(channels)-1)])
