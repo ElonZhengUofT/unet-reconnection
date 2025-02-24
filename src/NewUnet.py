@@ -27,7 +27,7 @@ class Block(nn.Module):
         # print(f"Type of self.conv: {type(self.conv)}")
 
     def forward(self, x):
-        output = self.con1(x)
+        output = self.conv1(x)
         output = self.bn1(output)
         output = self.relu1(output)
         output = self.conv2(output)
