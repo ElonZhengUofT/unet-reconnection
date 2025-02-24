@@ -66,8 +66,8 @@ class Up(nn.Module):
 
 class UNet(nn.Module):
     def __init__(self,
-                 enc_chs: Tuple[int, ...] = (3, 64, 128),
-                 dec_chs: Tuple[int, ...] = (128, 64),
+                 enc_chs: Tuple[int, ...] = (3, 64, 128, 256),
+                 dec_chs: Tuple[int, ...] = (256. 128, 64),
                  num_class: int = 1,
                  retain_dim: bool = False,
                  out_sz: Tuple[int, int] = (572, 572),
@@ -85,6 +85,7 @@ class UNet(nn.Module):
         # 修改4：根据 enc_chs 构造 Down 模块
         self.down1 = Down(enc_chs[0], enc_chs[1], kernel_size)
         self.down2 = Down(enc_chs[1], enc_chs[2], kernel_size)
+        self.down3 = Down(enc_chs[2], enc_chs[3], kernel_size)
 
         # 修改5：Bottleneck 模块将 Encoder 最后输出的通道数转换为 Decoder 第一层所需的通道数
         self.bottleneck = nn.Sequential(
@@ -100,9 +101,11 @@ class UNet(nn.Module):
 
         # 修改6：根据 dec_chs 和对应跳跃连接的通道数构造 Up 模块
         # 第一 Up 模块：输入 bottleneck 输出 dec_chs[0]，结合来自 down2 的跳跃连接（通道数 enc_chs[2]）
-        self.up2 = Up(dec_chs[0], enc_chs[2], dec_chs[0], kernel_size)
+        self.up3 = Up(dec_chs[0], enc_chs[3], dec_chs[0], kernel_size)
         # 第二 Up 模块：输入上一步输出 dec_chs[0]，结合来自 down1 的跳跃连接（通道数 enc_chs[1]），输出 dec_chs[1]
-        self.up1 = Up(dec_chs[0], enc_chs[1], dec_chs[1], kernel_size)
+        self.up2 = Up(dec_chs[0], enc_chs[2], dec_chs[1], kernel_size)
+        # 第三 Up 模块：输入上一步输出 dec_chs[1]，结合来自 down0 的跳跃连接（通道数 enc_chs[0]），输出 dec_chs[2]
+        self.up1 = Up(dec_chs[1], enc_chs[1], dec_chs[2], kernel_size)
 
         # 修改7：Head 层将最后的 Decoder 输出映射到 num_class 通道
         self.head = nn.Conv2d(dec_chs[1], num_class, kernel_size=1)
@@ -118,10 +121,12 @@ class UNet(nn.Module):
         input_shape = x.shape[2:]
         down1, skip1 = self.down1(x)  # skip1 尺寸为 (B, enc_chs[1], H-?, W-?)
         down2, skip2 = self.down2(down1)  # skip2 尺寸为 (B, enc_chs[2], ...)
+        down3, skip3 = self.down3(down2)
 
         bottleneck = self.bottleneck(down2)
 
-        up2 = self.up2(bottleneck, skip2)
+        up3 = self.up3(bottleneck, skip3)
+        up2 = self.up2(up3, skip2)
         up1 = self.up1(up2, skip1)
 
         output = self.head(up1)
