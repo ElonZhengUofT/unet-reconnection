@@ -24,7 +24,7 @@ class Block(nn.Module):
         self.bn2 = nn.BatchNorm2d(out_channels)
         self.relu2 = nn.ReLU(inplace=True)
 
-        print(f"Type of self.conv: {type(self.conv)}")
+        # print(f"Type of self.conv: {type(self.conv)}")
 
     def forward(self, x):
         output = self.con1(x)
