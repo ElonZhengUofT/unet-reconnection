@@ -2,14 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple
-# check NoneType
-from typing import Optional
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size):
         super().__init__()
         print("Checkpoint 1")
-        self.conv = nn.ModuleList([
+        self.conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
                       padding=0, stride=1),
             nn.BatchNorm2d(out_channels),
@@ -18,7 +16,7 @@ class Block(nn.Module):
                       padding=0, stride=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
-        ])
+        )
         print(f"Type of self.conv: {type(self.conv)}")
 
     def forward(self, x):
