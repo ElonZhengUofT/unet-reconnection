@@ -260,6 +260,15 @@ if __name__ == '__main__':
         kernel_size=args.kernel_size
     )
 
+    unet = UNet(
+        enc_chs=(len(features), 64, 128),
+        dec_chs=(128, 64),
+        num_class=args.num_classes,
+        retain_dim=True,
+        out_sz=(args.height, args.width),
+        kernel_size=args.kernel_size
+    )
+
     print("Third Checkpoint")
     
     macs, params = get_model_complexity_info(

@@ -12,6 +12,7 @@ class Block(nn.Module):
         self.conv2 = nn.Conv2d(out_ch, out_ch, kernel_size)
     
     def forward(self, x):
+        print(x.shape)
         return self.conv2(self.relu(self.conv1(x)))
 
 class Encoder(nn.Module):
