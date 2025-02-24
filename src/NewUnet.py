@@ -20,6 +20,7 @@ class Block(nn.Module):
         print(f"Type of self.conv: {type(self.conv)}")
 
     def forward(self, x):
+        print(x.shape)
         output = self.conv(x)
         return output
 
