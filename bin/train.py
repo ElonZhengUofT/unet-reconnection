@@ -268,6 +268,8 @@ if __name__ == '__main__':
     print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
     print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
+    print("Fourth Checkpoint")
+
     if args.gpus:
         assert torch.cuda.is_available()
         device = torch.device(f'cuda:{args.gpus[0]}')
