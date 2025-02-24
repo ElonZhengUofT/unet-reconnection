@@ -17,9 +17,6 @@ class Block(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         ])
-        for layer in self.conv:
-            if isinstance(layer, NoneType):
-                print(f"Layer {layer} is NoneType")
 
     def forward(self, x):
         return self.conv(x)
