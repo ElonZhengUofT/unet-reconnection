@@ -20,7 +20,8 @@ class Block(nn.Module):
         print(f"Type of self.conv: {type(self.conv)}")
 
     def forward(self, x):
-        return self.conv(x)
+        output = self.conv(x)
+        return output
 
 class Down(nn.Module):
     def __init__(self, channels: int, kernel_size: int):
