@@ -31,9 +31,9 @@ class Down(nn.Module):
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         skips = []
         for block in self.up_blocks:
-            x = block(x)
-            skips.append(x)
-            x = self.pool(x)
+            down = block(x)
+            skips.append(down)
+            down = self.pool(down)
         return down, skips
 
 
@@ -57,11 +57,11 @@ class Up(nn.Module):
     def forward(self, x: torch.Tensor,
                 skip_connection: torch.Tensor) -> torch.Tensor:
         for i in range(len(self.channels)-1):
-            x = self.up[i](x)
-            skip_connection = self.center_crop(skip_connection, x)
-            x = torch.cat((skip_connection, x), dim=1)
-            x = self.conv[i](x)
-        return x
+            up = self.up[i](x)
+            skip_connection = self.center_crop(skip_connection, up)
+            up = torch.cat((skip_connection, up), dim=1)
+            up = self.conv[i](up)
+        return up
 
 
 class UNet(nn.Module):
