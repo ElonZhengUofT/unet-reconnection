@@ -7,21 +7,32 @@ class Block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size):
         super().__init__()
         print("Checkpoint 1")
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
-                      padding=0, stride=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size,
-                      padding=0, stride=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
+        #         self.conv = nn.Sequential(
+        #             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
+        #                       padding=0, stride=1),
+        #             nn.BatchNorm2d(out_channels),
+        #             nn.ReLU(inplace=True),
+        #             nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size,
+        #                       padding=0, stride=1),
+        #             nn.BatchNorm2d(out_channels),
+        #             nn.ReLU(inplace=True)
+        #         )
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.relu1 = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu2 = nn.ReLU(inplace=True)
+
         print(f"Type of self.conv: {type(self.conv)}")
 
     def forward(self, x):
-        print(x.shape)
-        output = self.conv(x)
+        output = self.con1(x)
+        output = self.bn1(output)
+        output = self.relu1(output)
+        output = self.conv2(output)
+        output = self.bn2(output)
+        output = self.relu2(output)
         return output
 
 class Down(nn.Module):
