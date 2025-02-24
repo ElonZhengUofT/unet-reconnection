@@ -252,7 +252,7 @@ if __name__ == '__main__':
 
     print(f'Lenght of features: {len(features)}')
     unet = NewUNet(
-        down_chs=(len(features), 64, 128, 256),
+        down_chs=(6, 64, 128, 256),
         up_chs=(256, 128, 64),
         num_class=args.num_classes,
         retain_dim=True,
