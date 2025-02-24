@@ -24,6 +24,7 @@ class Encoder(nn.Module):
     def forward(self, x):
         ftrs = []
         for block in self.enc_blocks:
+            print(f"Encoder: {x.shape}")
             x = block(x)
             ftrs.append(x)
             x = self.pool(x)

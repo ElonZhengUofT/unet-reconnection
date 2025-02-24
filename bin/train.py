@@ -250,7 +250,6 @@ if __name__ == '__main__':
     #             kernel_size=args.kernel_size
     # )
 
-    print(f'Lenght of features: {len(features)}')
     unet = NewUNet(
         down_chs=(6, 64, 128, 256),
         up_chs=(256, 128, 64),
