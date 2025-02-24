@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple
+# check NoneType
+from typing import Optional
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size):
@@ -17,6 +19,9 @@ class Block(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
         ])
+        for layer in self.conv:
+            if isinstance(layer, NoneType):
+                print(f"Layer {layer} is NoneType")
 
     def forward(self, x):
         return self.conv(x)
