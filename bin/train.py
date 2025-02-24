@@ -3,8 +3,8 @@ import torch
 from tqdm import tqdm
 from glob import glob
 from src.data import NpzDataset
-# from src.model import UNet
-from src.NewUnet import UNet
+from src.model import UNet
+from src.NewUnet import UNet as NewUNet
 from src.callbacks import EarlyStopping
 from src.utils import split_data
 from plot import plot_comparison
@@ -242,9 +242,17 @@ if __name__ == '__main__':
 
     print("Second Checkpoint")
 
-    unet = UNet(
-        enc_chs=(len(features), 64, 128, 256),
-        dec_chs=(256, 128, 64),
+    # unet = UNet(enc_chs=(len(features), 64, 128),
+    #             dec_chs=(128, 64),
+    #             num_class=args.num_classes,
+    #             retain_dim=True,
+    #             out_sz=(args.height, args.width),
+    #             kernel_size=args.kernel_size
+    # )
+
+    unet = NewUNet(
+        down_chs=(len(features), 64, 128, 256),
+        up_chs=(256, 128, 64),
         num_class=args.num_classes,
         retain_dim=True,
         out_sz=(args.height, args.width),
