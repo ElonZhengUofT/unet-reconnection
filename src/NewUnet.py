@@ -28,7 +28,9 @@ class Block(nn.Module):
         # print(f"Type of self.conv: {type(self.conv)}")
 
     def forward(self, x):
+        print(f"x.shape: {x.shape}")
         output = self.conv1(x)
+        print(f"output.shape: {output.shape}")
         output = self.bn1(output)
         output = self.relu1(output)
         output = self.conv2(output)
