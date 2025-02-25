@@ -51,8 +51,9 @@ class Down(nn.Module):
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         skips = []
+        down = x
         for block in self.up_blocks:
-            down = block(x)
+            down = block(down)
             skips.append(down)
             down = self.pool(down)
         return down, skips
