@@ -51,6 +51,7 @@ class Down(nn.Module):
             down = block(down)
             down = self.pool(down)
             skips.append(down)
+        print(f'lenght of skips: {len(skips)}')
         return skips
 
 
