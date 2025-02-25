@@ -78,7 +78,7 @@ class Up(nn.Module):
         up = x
         k = 1
         for i in range(len(self.channels)-1):
-            print(f"{k} th round")
+            print(f"{k} th round, up.shape: {up.shape}")
             up = self.up[i](up)
             skip_connection = self.center_crop(skip_connection, up)
             up = torch.cat((skip_connection, up), dim=1)
