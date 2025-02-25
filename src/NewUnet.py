@@ -82,7 +82,7 @@ class Up(nn.Module):
             print(f"{k} th round, up.shape: {up.shape}")
             up = self.up[i](up)
             skip_connection = self.center_crop(skip_connection[i], up)
-            up = torch.cat((skip_connection, up), dim=1)
+            up = torch.cat([up,skip_connection], dim=1)
             up = self.conv[i](up)
             k += 1
         return up
