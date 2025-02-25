@@ -125,6 +125,7 @@ class UNet(nn.Module):
         skip_connections = self.down(input)
         x = skip_connections[-1]
         x = self.bottleneck(x)
+        print(f'in forward, len of skip_connections: {len(skip_connections)}')
         x = self.up(x, skip_connections[::-1][1:])
         x = self.head(x)
         if self.retain_dim:
