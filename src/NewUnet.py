@@ -107,7 +107,7 @@ class UNet(nn.Module):
         """
         super(UNet, self).__init__()
         self.down = Down(down_chs, kernel_size)
-        self.bottleneck = Block(down_chs[-1], down_chs[-1] * 2, kernel_size)
+        self.bottleneck = Block(down_chs[-1], down_chs[-1], kernel_size)
         self.up = Up(up_chs, kernel_size)
         self.head = nn.Conv2d(up_chs[-1], num_class, kernel_size=1)
         if num_class == 1:
