@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Tuple
+from torchvision import transforms
 
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size):
@@ -70,7 +71,7 @@ class Up(nn.Module):
     def center_crop(self, skip_connection, target):
         # 修改3：用center crop方式裁剪跳跃连接，与简单版一致
         _, _, h, w = target.shape
-        skip_connection = torchvision.transforms.CenterCrop([h, w])(skip_connection)
+        skip_connection = transforms.CenterCrop([h, w])(skip_connection)
         return skip_connection
 
     def forward(self, x: torch.Tensor,
