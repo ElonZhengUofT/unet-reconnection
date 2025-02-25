@@ -36,6 +36,7 @@ class Block(nn.Module):
         output = self.conv2(output)
         output = self.bn2(output)
         output = self.relu2(output)
+        print(f"output.shape 2: {output.shape}")
         return output
 
 class Down(nn.Module):
