@@ -301,7 +301,7 @@ if __name__ == '__main__':
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5, threshold=1.e-5, verbose=True
     )
-    early_stopping = EarlyStopping(patience=10, min_delta=0)
+    early_stopping = EarlyStopping(patience=1000, min_delta=0)
 
     print('Starting training...')
 
