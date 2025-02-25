@@ -51,7 +51,6 @@ class Down(nn.Module):
             down = block(down)
             down = self.pool(down)
             skips.append(down)
-        print(f'lenght of skips: {len(skips)}')
         return skips
 
 
@@ -77,12 +76,9 @@ class Up(nn.Module):
         up = x
         k = 1
         len_skip = len(skip_connections)
-        print(f"len_skip: {len_skip}")
         for i in range(len(self.channels)-1):
-            print(f"{k} th round, up.shape: {up.shape}")
             up = self.up[i](up)
             skip_connection = self.center_crop(skip_connections[i], up)
-            print(f"{k} th round, up.shape: {up.shape}, skip_connection.shape: {skip_connection.shape}")
             up = torch.cat([up,skip_connection], dim=1)
             up = self.conv[i](up)
             k += 1
@@ -127,7 +123,6 @@ class UNet(nn.Module):
         skip_connections = self.down(input)
         x = skip_connections[-1]
         x = self.bottleneck(x)
-        print(f'in forward, len of skip_connections: {len(skip_connections)}')
         x = self.up(x, skip_connections[::-1][1:])
         x = self.head(x)
         if self.retain_dim:
