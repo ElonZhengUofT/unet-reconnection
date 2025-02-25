@@ -29,13 +29,11 @@ class Block(nn.Module):
     def forward(self, x):
         print(f"x.shape: {x.shape}")
         output = self.conv1(x)
-        print(f"output.shape: {output.shape}")
         output = self.bn1(output)
         output = self.relu1(output)
         output = self.conv2(output)
         output = self.bn2(output)
         output = self.relu2(output)
-        print(f"output.shape 2: {output.shape}")
         return output
 
 class Down(nn.Module):
@@ -58,7 +56,6 @@ class Down(nn.Module):
 
 class Up(nn.Module):
     def __init__(self, channels: int, kernel_size: int):
-        print("Checkpoint 5")
         super(Up, self).__init__()
         self.channels = channels
         self.up = nn.ModuleList([nn.ConvTranspose2d(channels[i], channels[i+1],
