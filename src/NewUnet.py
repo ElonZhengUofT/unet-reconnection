@@ -73,15 +73,15 @@ class Up(nn.Module):
         return skip_connection
 
     def forward(self, x: torch.Tensor,
-                skip_connection: torch.Tensor) -> torch.Tensor:
+                skip_connections: torch.Tensor) -> torch.Tensor:
         up = x
         k = 1
-        len_skip = len(skip_connection)
+        len_skip = len(skip_connections)
         print(f"len_skip: {len_skip}")
         for i in range(len(self.channels)-1):
             print(f"{k} th round, up.shape: {up.shape}")
             up = self.up[i](up)
-            skip_connection = self.center_crop(skip_connection[i], up)
+            skip_connection = self.center_crop(skip_connections[i], up)
             print(f"{k} th round, up.shape: {up.shape}, skip_connection.shape: {skip_connection.shape}")
             up = torch.cat([up,skip_connection], dim=1)
             up = self.conv[i](up)
