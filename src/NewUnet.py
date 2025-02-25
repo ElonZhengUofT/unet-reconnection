@@ -76,6 +76,8 @@ class Up(nn.Module):
                 skip_connection: torch.Tensor) -> torch.Tensor:
         up = x
         k = 1
+        len_skip = len(skip_connection)
+        print(f"len_skip: {len_skip}")
         for i in range(len(self.channels)-1):
             print(f"{k} th round, up.shape: {up.shape}")
             up = self.up[i](up)
