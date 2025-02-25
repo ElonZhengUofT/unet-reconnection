@@ -123,7 +123,7 @@ class UNet(nn.Module):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         x, skip_connections = self.down(input)
         x = self.bottleneck(x)
-        x = self.up(x, skip_connections)
+        x = self.up(x, skip_connections[::-1])
         x = self.head(x)
         if self.retain_dim:
             x = F.interpolate(x, size=self.out_sz, mode='bilinear',
