@@ -79,8 +79,9 @@ class Up(nn.Module):
 
     def forward(self, x: torch.Tensor,
                 skip_connection: torch.Tensor) -> torch.Tensor:
+        up = x
         for i in range(len(self.channels)-1):
-            up = self.up[i](x)
+            up = self.up[i](up)
             skip_connection = self.center_crop(skip_connection, up)
             up = torch.cat((skip_connection, up), dim=1)
             up = self.conv[i](up)
