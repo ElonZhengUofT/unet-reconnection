@@ -44,6 +44,7 @@ class Decoder(nn.Module):
             enc_ftrs = self.crop(encoder_features[i], x)
             x        = torch.cat([x, enc_ftrs], dim=1)
             print(f'{k} th round, x.shape: {x.shape}, enc_ftrs.shape: {enc_ftrs.shape}')
+            print(f'{k} th round, x.shape: {x.shape}')
             x        = self.dec_blocks[i](x)
         return x
     
