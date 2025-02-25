@@ -6,7 +6,6 @@ from typing import Tuple
 class Block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size):
         super().__init__()
-        print("Checkpoint 1")
         #         self.conv = nn.Sequential(
         #             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,
         #                       padding=0, stride=1),
@@ -18,7 +17,6 @@ class Block(nn.Module):
         #             nn.ReLU(inplace=True)
         #         )
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size)
-        print(f"Block: {in_channels} -> {out_channels}")
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.relu1 = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size)
@@ -42,8 +40,6 @@ class Block(nn.Module):
 class Down(nn.Module):
     def __init__(self, channels: int, kernel_size: int):
         super(Down, self).__init__()
-        print("Checkpoint 4")
-        print(f"Channels in Down: {channels}")
         self.up_blocks = nn.ModuleList([Block(channels[i], channels[i+1],
                                               kernel_size)
                                         for i in range (len(channels)-1)])
@@ -80,11 +76,14 @@ class Up(nn.Module):
     def forward(self, x: torch.Tensor,
                 skip_connection: torch.Tensor) -> torch.Tensor:
         up = x
+        k = 1
         for i in range(len(self.channels)-1):
+            print(f"{k} th round")
             up = self.up[i](up)
             skip_connection = self.center_crop(skip_connection, up)
             up = torch.cat((skip_connection, up), dim=1)
             up = self.conv[i](up)
+            k += 1
         return up
 
 
@@ -108,9 +107,7 @@ class UNet(nn.Module):
         """
         super(UNet, self).__init__()
         self.down = Down(down_chs, kernel_size)
-        print("Checkpoint 6.1")
         self.bottleneck = Block(down_chs[-1], down_chs[-1] * 2, kernel_size)
-        print("Checkpoint 6.2")
         self.up = Up(up_chs, kernel_size)
         self.head = nn.Conv2d(up_chs[-1], num_class, kernel_size=1)
         if num_class == 1:

@@ -274,9 +274,8 @@ if __name__ == '__main__':
         unet, (len(features), args.height, args.width), 
         as_strings=True, print_per_layer_stat=True, verbose=True
     )
-    print(f"macs: {macs}, params: {params}")
-    # print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
-    # print('{:<30}  {:<8}'.format('Number of parameters: ', params))
+    print('{:<30}  {:<8}'.format('Computational complexity: ', macs))
+    print('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
     print("Fourth Checkpoint")
 
