@@ -38,10 +38,12 @@ class Decoder(nn.Module):
         self.dec_blocks = nn.ModuleList([Block(chs[i], chs[i+1], kernel_size) for i in range(len(chs)-1)]) 
         
     def forward(self, x, encoder_features):
+        k = 0
         for i in range(len(self.chs)-1):
             x        = self.upconvs[i](x)
             enc_ftrs = self.crop(encoder_features[i], x)
             x        = torch.cat([x, enc_ftrs], dim=1)
+            print(f'{k} th round, x.shape: {x.shape}, enc_ftrs.shape: {enc_ftrs.shape}')
             x        = self.dec_blocks[i](x)
         return x
     
