@@ -21,7 +21,6 @@ class Block(nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size,padding=0, stride=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.25),
             nn.Conv2d(out_channels, 2* out_channels, kernel_size=kernel_size,padding=0, stride=1),
             nn.BatchNorm2d(2 * out_channels),
             nn.ReLU(inplace=True),
