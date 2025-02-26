@@ -13,6 +13,7 @@ import numpy as np
 import argparse
 import json
 import os
+from torchviz import make_dot
 
 
 def train(
@@ -182,6 +183,13 @@ def evaluate(model, data_loader, device, criterion, outdir, epoch, binary, mode)
     return total_loss / total_count
 
 
+def visualize_model(model):
+    x = torch.randn(1, 6, 344, 620, requires_grad=True)
+    y = model(x)
+    g = make_dot(y, params=dict(list(model.named_parameters()) + [('x', x)]))
+    g.view()
+
+
 if __name__ == '__main__':
     os.environ["PYTHONPATH"] = "/content/unet-reconnection"
 
@@ -267,8 +275,7 @@ if __name__ == '__main__':
         kernel_size=args.kernel_size
     )
 
-
-
+    visualize_model(unet)
 
 
     print("Third Checkpoint")
