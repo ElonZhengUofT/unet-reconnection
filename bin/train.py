@@ -276,7 +276,7 @@ if __name__ == '__main__':
         kernel_size=args.kernel_size
     )
 
-    visualize_model(unet)
+    # visualize_model(unet)
 
 
     print("Third Checkpoint")
