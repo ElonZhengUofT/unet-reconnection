@@ -13,7 +13,8 @@ import numpy as np
 import argparse
 import json
 import os
-from torchviz import make_dot
+import netron
+import torch.onnx
 
 
 def train(
@@ -185,9 +186,9 @@ def evaluate(model, data_loader, device, criterion, outdir, epoch, binary, mode)
 
 def visualize_model(model):
     x = torch.randn(1, 6, 344, 620, requires_grad=True)
-    y = model(x)
-    g = make_dot(y, params=dict(list(model.named_parameters()) + [('x', x)]))
-    g.view()
+    modelData = "./demo.pth"
+    torch.onnx.export(model, x, modelData, export_params=True, opset_version=10, do_constant_folding=True, input_names=['input'], output_names=['output'], dynamic_axes={'input': {0: 'batch_size'}, 'output': {0: 'batch_size'}})
+    netron.start(modelData)
 
 
 if __name__ == '__main__':
