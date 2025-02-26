@@ -305,7 +305,7 @@ if __name__ == '__main__':
         criterion = torch.nn.BCELoss()
     else:
         criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate)
+    optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate, weight_decay=1.e-5)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', factor=0.5, patience=5, threshold=1.e-5, verbose=True
     )
