@@ -302,6 +302,7 @@ if __name__ == '__main__':
         optimizer, mode='min', factor=0.5, patience=5, threshold=1.e-5, verbose=True
     )
     early_stopping = EarlyStopping(patience=200, min_delta=0)
+    # early_stopping = EarlyStopping(patience=200, min_delta=0, verbose=True)
 
     print('Starting training...')
 
