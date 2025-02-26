@@ -22,7 +22,7 @@ class Block(nn.Module):
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
             nn.Conv2d(out_channels, 2* out_channels, kernel_size=kernel_size,padding=0, stride=1),
-            nn.BatchNorm2d(out_channels),
+            nn.BatchNorm2d(2 * out_channels),
             nn.ReLU(inplace=True),
             nn.Conv2d(2 * out_channels, out_channels, kernel_size=kernel_size,padding=0, stride=1),
             nn.BatchNorm2d(out_channels),
