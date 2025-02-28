@@ -15,6 +15,7 @@ import json
 import os
 import netron
 import torch.onnx
+from torchvision.ops import sigmoid_focal_loss
 
 
 def train(
@@ -302,7 +303,13 @@ if __name__ == '__main__':
     unet.to(device)
 
     if args.num_classes == 1:
-        criterion = torch.nn.BCELoss()
+        # criterion = torch.nn.BCELoss()
+        def focal_loss(outputs, labels, gamma=2.0, alpha=0.25):
+                return sigmoid_focal_loss(outputs, labels, alpha=alpha,
+                                          gamma=gamma, reduction="mean")
+
+
+        criterion = focal_loss
     else:
         criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(unet.parameters(), lr=args.learning_rate, weight_decay=1.e-5)
