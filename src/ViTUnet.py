@@ -2,8 +2,60 @@ from src.NewUnet import UNet
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from einops import rearrange
-from torchvision.models.vision_transformer import Encoder as ViTBlock
+from typing import Tuple
+from torchvision import transforms
+
+
+# ----------------------
+# ViT 模块（用于增强全局注意力）
+# ----------------------
+# 这里我们实现一个简单的 ViT 模块：
+class ViTModule(nn.Module):
+    def __init__(self, in_channels, img_size, patch_size, embed_dim, num_layers, num_heads):
+        """
+        参数说明：
+         - in_channels: 输入特征图通道数（来自 bottleneck）
+         - img_size: 输入特征图的尺寸（假设为正方形，如 32）
+         - patch_size: Patch 大小（必须整除 img_size）
+         - embed_dim: Transformer 嵌入维度
+         - num_layers: Transformer Encoder 层数
+         - num_heads: 多头注意力头数
+        """
+        super(ViTModule, self).__init__()
+        assert img_size % patch_size == 0, "img_size 必须是 patch_size 的整数倍"
+        self.patch_size = patch_size
+        self.embed_dim = embed_dim
+        self.img_size = img_size
+        self.num_patches = (img_size // patch_size) ** 2
+
+        self.patch_embed = nn.Conv2d(in_channels, embed_dim,
+                                     kernel_size=patch_size, stride=patch_size)
+        self.pos_embed = nn.Parameter(torch.zeros(1, self.num_patches, embed_dim))
+
+        encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.proj = nn.Linear(embed_dim, in_channels)
+
+    def forward(self, x):
+        # x: (B, C, H, W)
+        B, C, H, W = x.shape
+        x = self.patch_embed(x)  # (B, embed_dim, H/patch, W/patch)
+        x = x.flatten(2).transpose(1, 2)  # (B, num_patches, embed_dim)
+        x = x + self.pos_embed
+        # Transformer Encoder 期望输入 (seq_len, batch, embed_dim)
+        x = x.transpose(0, 1)  # (num_patches, B, embed_dim)
+        x = self.transformer_encoder(x)
+        x = x.transpose(0, 1)  # (B, num_patches, embed_dim)
+        x = self.proj(x)       # (B, num_patches, in_channels)
+        # 恢复回空间维度
+        h = H // self.patch_size
+        w = W // self.patch_size
+        x = x.transpose(1, 2).reshape(B, C, h, w)
+        # 如果需要，可以上采样回原始尺寸
+        x = F.interpolate(x, size=(H, W), mode='bilinear', align_corners=False)
+        return x
+
+
 class ViTUnet(UNet):
     def __init__(self,
                  down_chs: Tuple[int, ...] = (6, 64, 128, 256),
