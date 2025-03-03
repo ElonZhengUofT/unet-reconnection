@@ -246,10 +246,12 @@ if __name__ == '__main__':
 
 
     val_dataset = NpzDataset(val_files, features, args.normalize, args.standardize, binary)
-    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
+    #     val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
+    val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=args.batch_size, drop_last=False, num_workers=args.num_workers)
 
     test_dataset = NpzDataset(test_files, features, args.normalize, args.standardize, binary)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
+    # test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=True, num_workers=args.num_workers)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, drop_last=False, num_workers=args.num_workers)
 
     print("Second Checkpoint")
 
