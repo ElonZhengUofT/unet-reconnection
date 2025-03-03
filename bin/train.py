@@ -202,7 +202,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('-f', '--file-fraction', default=1.0, type=float)
     arg_parser.add_argument('-d', '--data-splits', default=[0.8, 0.1, 0.1], nargs='+', type=float)
     arg_parser.add_argument('-e', '--epochs', default=10, type=int)
-    arg_parser.add_argument('-b', '--batch-size', default=1, type=int)
+    arg_parser.add_argument('-b', '--batch-size', default=8, type=int)
     arg_parser.add_argument('-l', '--learning-rate', default=1.e-5, type=float)
     arg_parser.add_argument('-c', '--num-classes', default=1, type=int)
     arg_parser.add_argument('-k', '--kernel-size', default=3, type=int)

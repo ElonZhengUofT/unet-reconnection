@@ -85,8 +85,8 @@ class ViTUnet(UNet):
                  retain_dim: bool = False,
                  out_sz: Tuple[int, int] = (572, 572),
                  kernel_size: int = 3,
-                 previt_img_size: int = 572,  # 根据输入图像尺寸设置
-                 previt_patch_size: int = 4,  # 根据情况选择 patch 大小
+                 # previt_img_size: int = 572,  # 根据输入图像尺寸设置
+                 # previt_patch_size: int = 4,  # 根据情况选择 patch 大小
                  vit_img_size: int = 32,  # 这里需根据 bottleneck 输出特征图尺寸来设置
                  vit_patch_size: int = 4,  # 通常取较小值
                  vit_embed_dim: int = 256,
@@ -104,14 +104,14 @@ class ViTUnet(UNet):
         """
         super(ViTUnet, self).__init__(down_chs, up_chs, num_class, retain_dim, out_sz, kernel_size)
         # 在 Down 之前加入 PreViT 模块
-        self.previt = PreViT(
-            in_channels=down_chs[0],  # 输入通道数，假设与原始输入通道一致
-            vit_img_size=previt_img_size,
-            vit_patch_size=previt_patch_size,
-            vit_embed_dim=vit_embed_dim,
-            vit_num_layers=vit_num_layers,
-            vit_num_heads=vit_num_heads
-        )
+        #         self.previt = PreViT(
+        #             in_channels=down_chs[0],  # 输入通道数，假设与原始输入通道一致
+        #             vit_img_size=previt_img_size,
+        #             vit_patch_size=previt_patch_size,
+        #             vit_embed_dim=vit_embed_dim,
+        #             vit_num_layers=vit_num_layers,
+        #             vit_num_heads=vit_num_heads
+        #         )
 
         # 将 bottleneck 输出（down_chs[-1]）传入 ViTModule，注意 vit_img_size 需与实际特征图尺寸匹配
         self.vit = ViTModule(

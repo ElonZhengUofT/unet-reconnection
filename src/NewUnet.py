@@ -39,7 +39,7 @@ class Down(nn.Module):
         self.up_blocks = nn.ModuleList([Block(channels[i], channels[i+1],
                                               kernel_size)
                                         for i in range (len(channels)-1)])
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool = nn.MaxPool2d(2)
 
     def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         skips = []
