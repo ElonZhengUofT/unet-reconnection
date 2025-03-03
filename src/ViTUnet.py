@@ -56,6 +56,27 @@ class ViTModule(nn.Module):
         return x
 
 
+class PreViT(nn.Module):
+    def __init__(self, in_channels, vit_img_size, vit_patch_size, vit_embed_dim,
+                 vit_num_layers, vit_num_heads):
+        super(PreViT, self).__init__()
+        self.vit = ViTModule(
+            in_channels=in_channels,
+            img_size=vit_img_size,
+            patch_size=vit_patch_size,
+            embed_dim=vit_embed_dim,
+            num_layers=vit_num_layers,
+            num_heads=vit_num_heads
+        )
+        # 如果需要，可以用一个卷积层将 ViT 输出的通道映射到原始通道数
+        self.conv = nn.Conv2d(in_channels, in_channels, kernel_size=1)
+
+    def forward(self, x):
+        x = self.vit(x)
+        x = self.conv(x)
+        return x
+
+
 class ViTUnet(UNet):
     def __init__(self,
                  down_chs: Tuple[int, ...] = (6, 64, 128, 256),
@@ -80,7 +101,16 @@ class ViTUnet(UNet):
          - binary_class: 是否为二分类问题（默认 True）
         """
         super(ViTUnet, self).__init__(down_chs, up_chs, num_class, retain_dim, out_sz, kernel_size)
-        super(ViTUnet, self).__init__(down_chs, up_chs, num_class, retain_dim, out_sz, kernel_size)
+        # 在 Down 之前加入 PreViT 模块
+        self.previt = PreViT(
+            in_channels=down_chs[0],  # 输入通道数，假设与原始输入通道一致
+            vit_img_size=previt_img_size,
+            vit_patch_size=previt_patch_size,
+            vit_embed_dim=vit_embed_dim,
+            vit_num_layers=vit_num_layers,
+            vit_num_heads=vit_num_heads
+        )
+
         # 将 bottleneck 输出（down_chs[-1]）传入 ViTModule，注意 vit_img_size 需与实际特征图尺寸匹配
         self.vit = ViTModule(
             in_channels=down_chs[-1],
@@ -92,6 +122,7 @@ class ViTUnet(UNet):
         )
 
         def forward(self, input: torch.Tensor) -> torch.Tensor:
+            input = self.previt(input)
             skip_connections = self.down(input)
             x = skip_connections[-1]
             # 用 ViT 模块增强全局区域注意力

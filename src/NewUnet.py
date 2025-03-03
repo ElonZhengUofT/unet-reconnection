@@ -46,8 +46,8 @@ class Down(nn.Module):
         down = x
         for block in self.up_blocks:
             down = block(down)
-            down = self.pool(down)
             skips.append(down)
+            down = self.pool(down)
         return skips
 
 
