@@ -221,9 +221,13 @@ if __name__ == '__main__':
     arg_parser.add_argument('-d', '--dir', required=True, type=str)
     arg_parser.add_argument('-g', '--gif', action='store_true')
     arg_parser.add_argument('-m', '--modeldir')
+    # f means fixed threshold
+    arg_parser.add_argument('-f')
     args = arg_parser.parse_args()
-    
+
+################################################################################
     # Plot anisotropy with reconnection points
+################################################################################
     earth_center_x, xmin, xmax, zmin, zmax = plot_reconnection_points('sample/data/3600.npz')
 
     if args.modeldir:
@@ -253,8 +257,14 @@ if __name__ == '__main__':
                 frame = plot_gif_frame(preds, truth, i, xmin, xmax, zmin, zmax)
                 frames.append(frame)
             gif.save(frames, os.path.join(args.dir, 'epochs.gif'), duration=100)
+#-------------------------------------------------------------------------------
 
+
+################################################################################
     # Load test predictions
+################################################################################
+
+    # real test data and predictions
     test_list = glob(os.path.join(args.dir, 'test', '*.npz'))
     num_test_files = len(test_list)
     all_preds = np.zeros((num_test_files, metadata['args']['height'], metadata['args']['width']))
@@ -320,8 +330,12 @@ if __name__ == '__main__':
         axis=2
     )
     plot_confusion_matrix(all_binary_preds.ravel(), all_truth.ravel(), 'f2', args.dir)
-    
+#-------------------------------------------------------------------------------
+
+
+################################################################################
     # Plot ROC curve
+################################################################################
     plot_roc(all_preds.ravel(), all_truth.ravel(), args.dir)
 
     metrics = evaluate_classifier(all_binary_preds.ravel(), all_truth.ravel())
