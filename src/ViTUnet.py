@@ -86,7 +86,7 @@ class ViTUnet(UNet):
                  out_sz: Tuple[int, int] = (572, 572),
                  kernel_size: int = 3,
                  previt_img_size: int = 572,  # 根据输入图像尺寸设置
-                 previt_patch_size: int = 16,  # 根据情况选择 patch 大小
+                 previt_patch_size: int = 4,  # 根据情况选择 patch 大小
                  vit_img_size: int = 32,  # 这里需根据 bottleneck 输出特征图尺寸来设置
                  vit_patch_size: int = 4,  # 通常取较小值
                  vit_embed_dim: int = 256,
