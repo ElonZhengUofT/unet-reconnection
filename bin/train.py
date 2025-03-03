@@ -318,7 +318,7 @@ if __name__ == '__main__':
 
     if args.num_classes == 1:
         # criterion = torch.nn.BCELoss()
-        def focal_loss(outputs, labels, gamma=2.0, alpha=0.75):
+        def focal_loss(outputs, labels, gamma=1.5, alpha=0.85):
                 return sigmoid_focal_loss(outputs, labels, alpha=alpha,
                                           gamma=gamma, reduction="mean")
 
